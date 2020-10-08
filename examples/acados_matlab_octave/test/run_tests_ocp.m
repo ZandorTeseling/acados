@@ -31,6 +31,8 @@
 % POSSIBILITY OF SUCH DAMAGE.;
 %
 
+addpath(pwd)
+
 %% check that environment variables are provided
 try
     check_casadi_availibility();
@@ -53,6 +55,7 @@ try
     test_ocp_wtnx6;
     test_ocp_pendulum_dae;
     test_ocp_linear_mass_spring;
+    test_ocp_simple_dae;
 catch exception
     exit_with_error(exception);
 end

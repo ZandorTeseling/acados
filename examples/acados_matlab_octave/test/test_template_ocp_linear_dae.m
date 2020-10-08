@@ -42,7 +42,6 @@ for itest = 1:2
     codgen_model = 'true'; % true, false
 
     % ocp
-    param_scheme = 'multiple_shooting_unif_grid';
     N = 20;
     nlp_solver = 'sqp'; % sqp, sqp_rti
     nlp_solver_exact_hessian = 'false';
@@ -173,7 +172,6 @@ for itest = 1:2
 
     ocp_opts.set('compile_interface', compile_interface);
     ocp_opts.set('codgen_model', codgen_model);
-    ocp_opts.set('param_scheme', param_scheme);
     ocp_opts.set('param_scheme_N', N);
     ocp_opts.set('nlp_solver', nlp_solver);
     ocp_opts.set('nlp_solver_exact_hessian', nlp_solver_exact_hessian);
@@ -226,6 +224,7 @@ for itest = 1:2
         error(['test_ocp_wtnx6: difference between x and z bigger than',
             num2str(tol_diff_xz, '%e'), ' should be equal'])
     end
+    cost_val_ocp = ocp.get_cost();
 end % itest
 
 fprintf('\ntest_ocp_linear_dae: success!\n');
@@ -235,6 +234,8 @@ ocp.generate_c_code;
 cd c_generated_code/
 command = strcat('t_ocp = ', name, '_mex_solver');
 eval( command );
+
+t_ocp.set('constr_x0', x0);
 
 t_ocp.solve();
 t_ocp.print;
@@ -250,9 +251,16 @@ err_x = max(max(abs(x_traj - t_x)))
 err_u = max(max(abs(u_traj - t_u)))
 err_z = max(max(abs(z_traj - t_z)))
 
+cost_val_t_ocp = t_ocp.get_cost();
+
 if any([err_x, err_u, err_z] > 1e-9)
-    error(['test_ocp_templated_mex: solution of templated MEX and original MEX',...
+    error(['test_template_ocp_linear_dae: solution of templated MEX and original MEX',...
          ' differ too much. Should be < 1e-9 ']);
 end
 
+if abs(cost_val_ocp - cost_val_t_ocp) > 1e-9
+    error(['test_template_ocp_linear_dae: cost function value of templated MEX and original MEX',...
+         ' differ too much. Should be < 1e-9 ']);
+end
 clear all
+cd ..

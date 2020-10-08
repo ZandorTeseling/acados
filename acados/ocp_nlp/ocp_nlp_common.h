@@ -89,13 +89,16 @@ typedef struct
     void (*opts_set_at_stage)(void *config_, void *opts_, int stage, const char *field, void* value);
     // evaluate solver // TODO rename into solve
     int (*evaluate)(void *config, void *dims, void *nlp_in, void *nlp_out, void *opts_, void *mem, void *work);
-    void (*eval_param_sens)(void *config, void *dims, void *opts_, void *mem, void *work, char *field, int stage, int index, void *sens_nlp_out);
+    void (*eval_param_sens)(void *config, void *dims, void *opts_, void *mem, void *work,
+                            char *field, int stage, int index, void *sens_nlp_out);
     // prepare memory
     int (*precompute)(void *config, void *dims, void *nlp_in, void *nlp_out, void *opts_, void *mem, void *work);
     // initalize this struct with default values
     void (*config_initialize_default)(void *config);
     // general getter
     void (*get)(void *config_, void *dims, void *mem_, const char *field, void *return_value_);
+    void (*opts_get)(void *config_, void *dims, void *opts_, const char *field, void *return_value_);
+    void (*work_get)(void *config_, void *dims, void *work_, const char *field, void *return_value_);
     // config structs of submodules
     ocp_qp_xcond_solver_config *qp_solver; // TODO rename xcond_solver
     ocp_nlp_dynamics_config **dynamics;
@@ -166,7 +169,7 @@ void ocp_nlp_dims_set_constraints(void *config_, void *dims_, int stage,
 /// \param config_ The configuration struct.
 /// \param dims_ The dimension struct.
 /// \param stage Stage number.
-/// \param field Type of cost term, can be eiter ny (or others TBC).
+/// \param field Type of cost term, can be eiter ny.
 /// \param value_field Number of cost terms/residuals for the given stage.
 void ocp_nlp_dims_set_cost(void *config_, void *dims_, int stage, const char *field,
                            const void* value_field);
@@ -182,10 +185,10 @@ void ocp_nlp_dims_set_dynamics(void *config_, void *dims_, int stage, const char
                                const void* value);
 
 /************************************************
- * Inputs to the non-linear program
+ * Inputs
  ************************************************/
 
-/// Struct for storing the inputs of a non-linear program.
+/// Struct for storing the inputs of an OCP NLP solver
 typedef struct
 {
     /// Length of sampling intervals/timesteps.
@@ -218,11 +221,14 @@ ocp_nlp_in *ocp_nlp_in_assign(ocp_nlp_config *config, ocp_nlp_dims *dims, void *
 
 typedef struct
 {
-    struct blasfeo_dvec *ux;
-    struct blasfeo_dvec *z;
-    struct blasfeo_dvec *pi;
-    struct blasfeo_dvec *lam;
-    struct blasfeo_dvec *t;  // slacks of inequalities
+    struct blasfeo_dvec *ux;  // NOTE: this contains [u; x; s_l; s_u]! - rename to uxs?
+    struct blasfeo_dvec *z;  // algebraic vairables
+    struct blasfeo_dvec *pi;  // multipliers for dynamics
+    struct blasfeo_dvec *lam;  // inequality mulitpliers
+    struct blasfeo_dvec *t;  // slack variables corresponding to evaluation of all inequalities (at the solution)
+
+    // NOTE: the inequalities are internally organized in the following order:
+    // [ lbu lbx lg lh lphi ubu ubx ug uh uphi; lsbu lsbx lsg lsh lsphi usbu usbx usg ush usphi]
 
     int sqp_iter;
     int qp_iter;
@@ -243,15 +249,23 @@ ocp_nlp_out *ocp_nlp_out_assign(ocp_nlp_config *config, ocp_nlp_dims *dims,
  * options
  ************************************************/
 
+/// Globalization types
+typedef enum
+{
+    FIXED_STEP,
+    MERIT_BACKTRACKING,
+} ocp_nlp_globalization_t;
+
 typedef struct
 {
-//    void *qp_solver_opts; // xcond solver opts instead ???
+    ocp_nlp_globalization_t globalization;
     ocp_qp_xcond_solver_opts *qp_solver_opts; // xcond solver opts instead ???
     void *regularize;
     void **dynamics;     // dynamics_opts
     void **cost;         // cost_opts
     void **constraints;  // constraints_opts
-    double step_length;  // (fixed) step length in SQP loop
+    double step_length;  // step length in case of FIXED_STEP
+    double levenberg_marquardt;  // LM factor to be added to the hessian before regularization
     int reuse_workspace;
     int num_threads;
 
@@ -271,6 +285,27 @@ void ocp_nlp_opts_set(void *config_, void *opts_, const char *field, void* value
 void ocp_nlp_opts_set_at_stage(void *config, void *opts, int stage, const char *field, void *value);
 
 
+/************************************************
+ * residuals
+ ************************************************/
+
+typedef struct
+{
+    struct blasfeo_dvec *res_stat;  // stationarity
+    struct blasfeo_dvec *res_eq;  // dynamics
+    struct blasfeo_dvec *res_ineq;  // inequality constraints
+    struct blasfeo_dvec *res_comp;  // complementarity
+    double inf_norm_res_stat;
+    double inf_norm_res_eq;
+    double inf_norm_res_ineq;
+    double inf_norm_res_comp;
+    int memsize;
+} ocp_nlp_res;
+
+//
+int ocp_nlp_res_calculate_size(ocp_nlp_dims *dims);
+//
+ocp_nlp_res *ocp_nlp_res_assign(ocp_nlp_dims *dims, void *raw_memory);
 
 /************************************************
  * memory
@@ -285,6 +320,9 @@ typedef struct
     void **cost;         // cost memory
     void **constraints;  // constraints memory
 
+    // residuals
+    ocp_nlp_res *nlp_res;
+
     // qp in & out
     ocp_qp_in *qp_in;
     ocp_qp_out *qp_out;
@@ -297,7 +335,8 @@ typedef struct
     struct blasfeo_dvec *ineq_adj;
     struct blasfeo_dvec *dyn_fun;
     struct blasfeo_dvec *dyn_adj;
-//	double cost_fun; TODO
+
+    double cost_value;
 
     bool *set_sim_guess; // indicate if there is new explicitly provided guess for integration variables
     struct blasfeo_dvec *sim_guess;
@@ -309,7 +348,8 @@ typedef struct
 //
 int ocp_nlp_memory_calculate_size(ocp_nlp_config *config, ocp_nlp_dims *dims, ocp_nlp_opts *opts);
 //
-ocp_nlp_memory *ocp_nlp_memory_assign(ocp_nlp_config *config, ocp_nlp_dims *dims, ocp_nlp_opts *opts, void *raw_memory);
+ocp_nlp_memory *ocp_nlp_memory_assign(ocp_nlp_config *config, ocp_nlp_dims *dims,
+                                      ocp_nlp_opts *opts, void *raw_memory);
 
 
 
@@ -326,7 +366,7 @@ typedef struct
     void **constraints;  // constraints_workspace
 
 	ocp_nlp_out *tmp_nlp_out;
-	ocp_nlp_out *weights_nlp_out;
+	ocp_nlp_out *weight_merit_fun;
 
 } ocp_nlp_workspace;
 
@@ -352,38 +392,23 @@ void ocp_nlp_approximate_qp_matrices(ocp_nlp_config *config, ocp_nlp_dims *dims,
 void ocp_nlp_approximate_qp_vectors_sqp(ocp_nlp_config *config, ocp_nlp_dims *dims, ocp_nlp_in *in,
                  ocp_nlp_out *out, ocp_nlp_opts *opts, ocp_nlp_memory *mem, ocp_nlp_workspace *work);
 //
+void ocp_nlp_embed_initial_value(ocp_nlp_config *config, ocp_nlp_dims *dims, ocp_nlp_in *in,
+                 ocp_nlp_out *out, ocp_nlp_opts *opts, ocp_nlp_memory *mem, ocp_nlp_workspace *work);
+//
 void ocp_nlp_update_variables_sqp(ocp_nlp_config *config, ocp_nlp_dims *dims, ocp_nlp_in *in,
            ocp_nlp_out *out, ocp_nlp_opts *opts, ocp_nlp_memory *mem, ocp_nlp_workspace *work);
 //
 double ocp_nlp_evaluate_merit_fun(ocp_nlp_config *config, ocp_nlp_dims *dims, ocp_nlp_in *in,
           ocp_nlp_out *out, ocp_nlp_opts *opts, ocp_nlp_memory *mem, ocp_nlp_workspace *work);
-
-
-
-/************************************************
- * residuals
- ************************************************/
-
-typedef struct
-{
-    struct blasfeo_dvec *res_g;  // stationarity
-    struct blasfeo_dvec *res_b;  // dynamics
-    struct blasfeo_dvec *res_d;  // inequality constraints
-    struct blasfeo_dvec *res_m;  // complementarity
-    double inf_norm_res_g;
-    double inf_norm_res_b;
-    double inf_norm_res_d;
-    double inf_norm_res_m;
-    int memsize;
-} ocp_nlp_res;
-
 //
-int ocp_nlp_res_calculate_size(ocp_nlp_dims *dims);
+void ocp_nlp_initialize_t_slacks(ocp_nlp_config *config, ocp_nlp_dims *dims, ocp_nlp_in *in,
+            ocp_nlp_out *out, ocp_nlp_opts *opts, ocp_nlp_memory *mem, ocp_nlp_workspace *work);
 //
-ocp_nlp_res *ocp_nlp_res_assign(ocp_nlp_dims *dims, void *raw_memory);
+void ocp_nlp_res_compute(ocp_nlp_dims *dims, ocp_nlp_in *in, ocp_nlp_out *out,
+                         ocp_nlp_res *res, ocp_nlp_memory *mem);
 //
-void ocp_nlp_res_compute(ocp_nlp_dims *dims, ocp_nlp_in *in, ocp_nlp_out *out, ocp_nlp_res *res, ocp_nlp_memory *mem);
-
+void ocp_nlp_cost_compute(ocp_nlp_config *config, ocp_nlp_dims *dims, ocp_nlp_in *in,
+            ocp_nlp_out *out, ocp_nlp_opts *opts, ocp_nlp_memory *mem, ocp_nlp_workspace *work);
 
 
 #ifdef __cplusplus
@@ -391,5 +416,6 @@ void ocp_nlp_res_compute(ocp_nlp_dims *dims, ocp_nlp_in *in, ocp_nlp_out *out, o
 #endif
 
 #endif  // ACADOS_OCP_NLP_OCP_NLP_COMMON_H_
+/// @}
 /// @}
 /// @}

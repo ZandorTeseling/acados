@@ -36,18 +36,13 @@
 #include <stdio.h>
 #include <string.h>
 // acados
-//#include "acados/sim/sim_common.h"
 #include "acados_c/ocp_nlp_interface.h"
 // mex
 #include "mex.h"
 
 
-
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
-    {
-
-//    mexPrintf("\nin ocp_solve\n");
-
+{
     long long *ptr;
 
     /* RHS */
@@ -70,19 +65,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     // index
     int index = mxGetScalar( prhs[3] );
 
-
-
     /* solver */
     ocp_nlp_eval_param_sens(solver, field, stage, index, sens_out);
 
 
-
-    /* return */
-
     return;
 
-    }
-
+}
 
 
 

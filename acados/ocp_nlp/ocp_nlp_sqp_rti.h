@@ -48,7 +48,6 @@ extern "C" {
 
 // acados
 #include "acados/ocp_nlp/ocp_nlp_common.h"
-#include "acados/sim/sim_common.h"
 #include "acados/utils/types.h"
 
 
@@ -59,27 +58,29 @@ extern "C" {
 
 typedef struct
 {
-	ocp_nlp_opts *nlp_opts;
+    ocp_nlp_opts *nlp_opts;
     int compute_dual_sol;
-    int ext_qp_res;      // compute external QP residuals (i.e. at SQP level) at each SQP iteration (for debugging)
-    int qp_warm_start;   // NOTE: this is not actually setting the warm_start! Just for compatibility with sqp.
+    int ext_qp_res;           // compute external QP residuals (i.e. at SQP level) at each SQP iteration (for debugging)
+    int qp_warm_start;        // NOTE: this is not actually setting the warm_start! Just for compatibility with sqp.
     bool warm_start_first_qp; // to set qp_warm_start in first iteration
-    int print_level;     // possible values 0, 1 
+    int rti_phase;            // phase of RTI. Possible values 1 (preparation), 2 (feedback) 0 (both)
+    int print_level;     // verbosity
 
 } ocp_nlp_sqp_rti_opts;
 
 //
-int ocp_nlp_sqp_rti_opts_calculate_size(void *config, void *dims);
+int ocp_nlp_sqp_rti_opts_calculate_size(void *config_, void *dims_);
 //
-void *ocp_nlp_sqp_rti_opts_assign(void *config, void *dims, void *raw_memory);
+void *ocp_nlp_sqp_rti_opts_assign(void *config_, void *dims_, void *raw_memory);
 //
-void ocp_nlp_sqp_rti_opts_initialize_default(void *config, void *dims, void *opts);
+void ocp_nlp_sqp_rti_opts_initialize_default(void *config_, void *dims_, void *opts_);
 //
-void ocp_nlp_sqp_rti_opts_update(void *config, void *dims, void *opts);
+void ocp_nlp_sqp_rti_opts_update(void *config_, void *dims_, void *opts_);
 //
 void ocp_nlp_sqp_rti_opts_set(void *config_, void *opts_, const char *field, void* value);
 //
-void ocp_nlp_sqp_rti_opts_set_at_stage(void *config_, void *opts_, int stage, const char *field, void* value);
+void ocp_nlp_sqp_rti_opts_set_at_stage(void *config_, void *opts_, int stage,
+    const char *field, void* value);
 
 
 
@@ -94,6 +95,7 @@ typedef struct
 
     double time_qp_sol;
     double time_qp_solver_call;
+    double time_qp_xcond;
     double time_lin;
     double time_reg;
     double time_tot;
@@ -108,9 +110,10 @@ typedef struct
 } ocp_nlp_sqp_rti_memory;
 
 //
-int ocp_nlp_sqp_rti_memory_calculate_size(void *config, void *dims, void *opts_);
+int ocp_nlp_sqp_rti_memory_calculate_size(void *config_, void *dims_, void *opts_);
 //
-void *ocp_nlp_sqp_rti_memory_assign(void *config, void *dims, void *opts_, void *raw_memory);
+void *ocp_nlp_sqp_rti_memory_assign(void *config_, void *dims_, void *opts_,
+    void *raw_memory);
 
 
 
@@ -120,7 +123,7 @@ void *ocp_nlp_sqp_rti_memory_assign(void *config, void *dims, void *opts_, void 
 
 typedef struct
 {
-	ocp_nlp_workspace *nlp_work;
+    ocp_nlp_workspace *nlp_work;
 
     // temp QP in & out (to be used as workspace in param sens)
     ocp_qp_in *tmp_qp_in;
@@ -134,7 +137,7 @@ typedef struct
 } ocp_nlp_sqp_rti_workspace;
 
 //
-int ocp_nlp_sqp_rti_workspace_calculate_size(void *config, void *dims, void *opts_);
+int ocp_nlp_sqp_rti_workspace_calculate_size(void *config_, void *dims_, void *opts_);
 
 
 
@@ -142,14 +145,20 @@ int ocp_nlp_sqp_rti_workspace_calculate_size(void *config, void *dims, void *opt
  * functions
  ************************************************/
 
+void ocp_nlp_sqp_rti_preparation_step(void *config_, void *dims_,
+    void *nlp_in_, void *nlp_out_, void *opts, void *mem_, void *work_);
 //
-int ocp_nlp_sqp_rti(void *config, void *dims, void *nlp_in, void *nlp_out,
-                void *args, void *mem, void *work_);
+void ocp_nlp_sqp_rti_feedback_step(void *config_, void *dims_,
+    void *nlp_in_, void *nlp_out_, void *opts_, void *mem_, void *work_);
+//
+int ocp_nlp_sqp_rti(void *config_, void *dims_, void *nlp_in_, void *nlp_out_,
+    void *opts_, void *mem_, void *work_);
 //
 void ocp_nlp_sqp_rti_config_initialize_default(void *config_);
 //
-int ocp_nlp_sqp_rti_precompute(void *config_, void *dims_, void *nlp_in_, void *nlp_out_,
-                void *opts_, void *mem_, void *work_);
+int ocp_nlp_sqp_rti_precompute(void *config_, void *dims_,
+    void *nlp_in_, void *nlp_out_, void *opts_, void *mem_, void *work_);
+
 
 
 #ifdef __cplusplus

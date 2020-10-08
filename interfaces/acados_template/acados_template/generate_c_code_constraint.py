@@ -35,7 +35,7 @@ import os
 from casadi import *
 from .utils import ALLOWED_CASADI_VERSIONS, is_empty, casadi_length
 
-def generate_c_code_constraint( model, con_name, is_terminal ):
+def generate_c_code_constraint( model, con_name, is_terminal, opts ):
 
     casadi_version = CasadiMeta.version()
     casadi_opts = dict(mex=False, casadi_int='int', casadi_real='double')
@@ -89,6 +89,14 @@ def generate_c_code_constraint( model, con_name, is_terminal ):
             else:
                 z = MX.sym('z', 0, 0)
 
+        if not (is_empty(con_h_expr)) and opts['generate_hess']:
+            # multipliers for hessian
+            nh = casadi_length(con_h_expr)
+            if is_SX:
+                lam_h = SX.sym('lam_h', nh, 1)
+            else:
+                lam_h = MX.sym('lam_h', nh, 1)
+
         # set up & change directory
         if not os.path.exists('c_generated_code'):
             os.mkdir('c_generated_code')
@@ -106,15 +114,41 @@ def generate_c_code_constraint( model, con_name, is_terminal ):
             else:
                 fun_name = con_name + '_constr_h_fun_jac_uxt_zt'
 
-            jac_x = jacobian(con_h_expr, x)
-            jac_u = jacobian(con_h_expr, u)
-            jac_z = jacobian(con_h_expr, z)
-            constraint_fun_jac_tran = \
-                Function(fun_name, [x, u, z, p], \
-                [con_h_expr, vertcat(transpose(jac_u), \
-                transpose(jac_x)), transpose(jac_z)])
+            jac_ux_t = transpose(jacobian(con_h_expr, vertcat(u,x)))
+            jac_z_t = jacobian(con_h_expr, z)
+            constraint_fun_jac_tran = Function(fun_name, [x, u, z, p], \
+                    [con_h_expr, jac_ux_t, jac_z_t])
 
             constraint_fun_jac_tran.generate(fun_name, casadi_opts)
+            if opts['generate_hess']:
+
+                if is_terminal:
+                    fun_name = con_name + '_constr_h_e_fun_jac_uxt_hess'
+                else:
+                    fun_name = con_name + '_constr_h_fun_jac_uxt_hess'
+
+                # adjoint
+                adj_ux = jtimes(con_h_expr, vertcat(u, x), lam_h, True)
+                # hessian
+                hess_ux = jacobian(adj_ux, vertcat(u, x))
+
+                adj_z = jtimes(con_h_expr, z, lam_h, True)
+                hess_z = jacobian(adj_z, z)
+
+                # set up functions
+                constraint_fun_jac_tran_hess = \
+                    Function(fun_name, [x, u, lam_h, z, p], \
+                      [con_h_expr, jac_ux_t, hess_ux, jac_z_t, hess_z])
+
+                # generate C code
+                constraint_fun_jac_tran_hess.generate(fun_name, casadi_opts)
+
+            if is_terminal:
+                fun_name = con_name + '_constr_h_e_fun'
+            else:
+                fun_name = con_name + '_constr_h_fun'
+            h_fun = Function(fun_name, [x, u, z, p], [con_h_expr])
+            h_fun.generate(fun_name, casadi_opts)
 
         else: # BGP constraint
             if is_terminal:

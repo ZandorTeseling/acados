@@ -63,7 +63,7 @@ end
 %% load model
 % x
 is_template = false;
-if isa(model, 'acados_template_mex.acados_dae')
+if isa(model, 'acados_template_mex.acados_model_json')
     is_template = true;
     % names without sym
     x = model.x;
@@ -174,12 +174,12 @@ impl_dae_fun_jac_x_xdot_u = Function([model_name,'_impl_dae_fun_jac_x_xdot_u'], 
 
 
 if is_template
-    if ~exist('c_generated_code', 'dir')
+    if ~exist(fullfile(pwd,'c_generated_code'), 'dir')
         mkdir('c_generated_code');
     end
     cd 'c_generated_code'
     model_dir = [model_name, '_model'];
-    if ~exist(model_dir, 'dir')
+    if ~exist(fullfile(pwd, model_dir), 'dir')
         mkdir(model_dir);
     end
     cd(model_dir)

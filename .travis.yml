@@ -38,6 +38,7 @@ matrix:
       os: osx
       osx_image: xcode9.4
       # osx_image: xcode10.1
+      python: 3.7
       env:
         - DEPLOY_NAME="osx-python"
 
@@ -45,7 +46,7 @@ matrix:
       env:
         - DEPLOY_NAME="linux octave gcc6"
         - MATRIX_EVAL="CC=gcc-6 && CXX=g++-6"
-        - ACADOS_OCTAVE="OFF"
+        - ACADOS_OCTAVE="ON"
         - ACADOS_OCTAVE_TEMPLATE="OFF"
         - ACADOS_EXAMPLES="OFF"
         - ACADOS_UNIT_TESTS="OFF"
@@ -64,7 +65,7 @@ matrix:
         - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
         - ACADOS_OCTAVE="ON"
         - ACADOS_OCTAVE_TEMPLATE="ON"
-
+        - ACADOS_UNIT_TESTS="OFF"
 
     - name: Linux Clang
       env:
@@ -88,6 +89,8 @@ before_install:
   - export SCRIPT_DIR="${TRAVIS_BUILD_DIR}/ci/${TRAVIS_OS_NAME}"
   - export SHARED_SCRIPT_DIR="${TRAVIS_BUILD_DIR}/ci/shared"
   - source "${SCRIPT_DIR}/dispatch.sh"
+  - python --version
+  - python3 --version
 
 install:
   - SECTION='install'

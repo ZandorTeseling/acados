@@ -57,13 +57,13 @@ int main()
 
     // initial condition
     int idxbx0[{{ dims.nbx_0 }}];
-    {% for i in range(end=dims.nbx_0) %}
+    {%- for i in range(end=dims.nbx_0) %}
     idxbx0[{{ i }}] = {{ constraints.idxbx_0[i] }};
     {%- endfor %}
 
     double lbx0[{{ dims.nbx_0 }}];
     double ubx0[{{ dims.nbx_0 }}];
-    {% for i in range(end=dims.nbx_0) %}
+    {%- for i in range(end=dims.nbx_0) %}
     lbx0[{{ i }}] = {{ constraints.lbx_0[i] }};
     ubx0[{{ i }}] = {{ constraints.ubx_0[i] }};
     {%- endfor %}
@@ -103,6 +103,7 @@ int main()
     {% elif solver_options.integrator_type == "ERK" %}
     for (int ii = 0; ii < {{ dims.N }}; ii++)
     {
+        expl_ode_fun[ii].set_param(expl_ode_fun+ii, p);
         forw_vde_casadi[ii].set_param(forw_vde_casadi+ii, p);
     }
     {%- endif %}
@@ -112,7 +113,8 @@ int main()
         phi_constraint[ii].set_param(phi_constraint+ii, p);
         {%- endif %}
         {%- if dims.nh > 0 %}
-        h_constraint[ii].set_param(h_constraint+ii, p);
+        nl_constr_h_fun_jac[ii].set_param(nl_constr_h_fun_jac+ii, p);
+        nl_constr_h_fun[ii].set_param(nl_constr_h_fun+ii, p);
         {% endif %}
     }
     {%- if constraints.constr_type_e == "BGP" %}
@@ -120,12 +122,13 @@ int main()
     phi_e_constraint.set_param(&phi_e_constraint, p);
     {% endif %}
     {%- if dims.nh_e > 0 %}
-    h_e_constraint.set_param(&h_e_constraint, p);
+    nl_constr_h_e_fun_jac.set_param(&nl_constr_h_e_fun_jac, p);
+    nl_constr_h_e_fun.set_param(&nl_constr_h_e_fun, p);
     {% endif %}
   {% endif %}{# if np > 0 #}
 
     // prepare evaluation
-    int NTIMINGS = 1;
+    int NTIMINGS = 20;
     double min_time = 1e12;
     double kkt_norm_inf;
     double elapsed_time;
@@ -134,7 +137,10 @@ int main()
     double xtraj[{{ dims.nx }} * ({{ dims.N }}+1)];
     double utraj[{{ dims.nu }} * ({{ dims.N }})];
 
+
     // solve ocp in loop
+    int rti_phase = 0;
+
     for (int ii = 0; ii < NTIMINGS; ii++)
     {
         // initialize solution
@@ -143,6 +149,7 @@ int main()
             ocp_nlp_out_set(nlp_config, nlp_dims, nlp_out, i, "x", x_init);
             ocp_nlp_out_set(nlp_config, nlp_dims, nlp_out, i, "u", u0);
         }
+        ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "rti_phase", &rti_phase);
         status = acados_solve();
         ocp_nlp_get(nlp_config, nlp_solver, "time_tot", &elapsed_time);
         min_time = MIN(elapsed_time, min_time);
@@ -175,9 +182,11 @@ int main()
     ocp_nlp_out_get(nlp_config, nlp_dims, nlp_out, 0, "kkt_norm_inf", &kkt_norm_inf);
     ocp_nlp_get(nlp_config, nlp_solver, "sqp_iter", &sqp_iter);
 
+    acados_print_stats();
+
     printf("\nSolver info:\n");
-    printf(" SQP iterations %2d\n minimum time for 1 solve %f [ms]\n KKT %e\n",
-           sqp_iter, min_time*1000, kkt_norm_inf);
+    printf(" SQP iterations %2d\n minimum time for %d solve %f [ms]\n KKT %e\n",
+           sqp_iter, NTIMINGS, min_time*1000, kkt_norm_inf);
 
     // free solver
     status = acados_free();

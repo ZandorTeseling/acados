@@ -47,7 +47,6 @@ end
 %% arguments
 compile_interface = 'auto';
 codgen_model = 'true';
-param_scheme = 'multiple_shooting_unif_grid';
 N = 40;
 nlp_solver = 'sqp';
 %nlp_solver = 'sqp_rti';
@@ -96,8 +95,6 @@ ny = 4; % number of outputs in lagrange term
 ny_e = 2; % number of outputs in mayer term
 nbx = 3;
 nbu = nu;
-ng = 0;
-ng_e = 0;
 nh = 1;
 nh_e = 1;
 ns = 1;
@@ -253,6 +250,8 @@ ocp_model.set('constr_uh_e', uh_e);
 % soft nonlinear constraints
 ocp_model.set('constr_Jsh', Jsh);
 ocp_model.set('constr_Jsh_e', Jsh_e);
+% (dummy) initial state constr
+ocp_model.set('constr_x0', zeros(nx,1));
 
 ocp_model.model_struct
 
@@ -262,7 +261,6 @@ ocp_model.model_struct
 ocp_opts = acados_ocp_opts();
 ocp_opts.set('compile_interface', compile_interface);
 ocp_opts.set('codgen_model', codgen_model);
-ocp_opts.set('param_scheme', param_scheme);
 ocp_opts.set('param_scheme_N', N);
 ocp_opts.set('nlp_solver', nlp_solver);
 ocp_opts.set('nlp_solver_exact_hessian', nlp_solver_exact_hessian);

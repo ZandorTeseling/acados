@@ -50,9 +50,12 @@ classdef acados_ocp_opts < handle
             % default values
             obj.opts_struct.compile_interface = 'auto'; % auto, true, false
             obj.opts_struct.codgen_model = 'true';
-            obj.opts_struct.param_scheme = 'multiple_shooting_unif_grid';
+            obj.opts_struct.compile_model = 'true';
             obj.opts_struct.param_scheme_N = 10;
-            % obj.opts_struct.param_scheme_shooting_nodes % only needed for nonuniform grid
+            % set one of the following for nonuniform grid
+            obj.opts_struct.shooting_nodes = [];
+            obj.opts_struct.time_steps = [];
+
             obj.opts_struct.nlp_solver = 'sqp';
             obj.opts_struct.nlp_solver_exact_hessian = 'false';
             obj.opts_struct.nlp_solver_max_iter = 100;
@@ -62,6 +65,7 @@ classdef acados_ocp_opts < handle
             obj.opts_struct.nlp_solver_tol_comp = 1e-6;
             obj.opts_struct.nlp_solver_ext_qp_res = 0; % compute QP residuals at each NLP iteration
             obj.opts_struct.nlp_solver_step_length = 1.0; % fixed step length in SQP algorithm
+            obj.opts_struct.rti_phase = 0; % RTI phase: (1) preparation, (2) feedback, (0) both
             obj.opts_struct.qp_solver = 'partial_condensing_hpipm';
             obj.opts_struct.qp_solver_iter_max = 50;
             % obj.opts_struct.qp_solver_cond_N = 5; % New horizon after partial condensing
@@ -78,6 +82,12 @@ classdef acados_ocp_opts < handle
             obj.opts_struct.gnsf_detect_struct = 'true';
             obj.opts_struct.regularize_method = 'no_regularize';
             obj.opts_struct.print_level = 0;
+            obj.opts_struct.levenberg_marquardt = 0.0;
+            % 0 or 1, only used if nlp_solver_exact_hessian
+            obj.opts_struct.exact_hess_dyn = 1;
+            obj.opts_struct.exact_hess_cost = 1;
+            obj.opts_struct.exact_hess_constr = 1;
+
 
             obj.opts_struct.output_dir = fullfile(pwd, 'build');
             if ismac()
@@ -91,16 +101,31 @@ classdef acados_ocp_opts < handle
                 obj.opts_struct.compile_interface = value;
             elseif (strcmp(field, 'codgen_model'))
                 obj.opts_struct.codgen_model = value;
+            elseif (strcmp(field, 'compile_model'))
+                obj.opts_struct.compile_model = value;
             elseif (strcmp(field, 'param_scheme'))
-                obj.opts_struct.param_scheme = value;
+                warning(['param_scheme: option is outdated! Uniform discretization with T/N is default!\n',...
+                         'Set opts.shooting_nodes or opts.time_steps for nonuniform discretizations.'])
             elseif (strcmp(field, 'param_scheme_N'))
                 obj.opts_struct.param_scheme_N = value;
-            elseif (strcmp(field, 'param_scheme_shooting_nodes'))
-                obj.opts_struct.param_scheme_shooting_nodes = value;
+            elseif (any(strcmp(field, {'param_scheme_shooting_nodes','shooting_nodes'})))
+                obj.opts_struct.shooting_nodes = value;
+            elseif (strcmp(field, 'time_steps'))
+                obj.opts_struct.time_steps = value;
             elseif (strcmp(field, 'nlp_solver'))
                 obj.opts_struct.nlp_solver = value;
             elseif (strcmp(field, 'nlp_solver_exact_hessian'))
                 obj.opts_struct.nlp_solver_exact_hessian = value;
+            % hessian approx
+            elseif (strcmp(field, 'nlp_solver_exact_hessian'))
+                obj.opts_struct.nlp_solver_exact_hessian = value;
+            elseif (strcmp(field, 'exact_hess_dyn'))
+                obj.opts_struct.exact_hess_dyn = value;
+            elseif (strcmp(field, 'exact_hess_cost'))
+                obj.opts_struct.exact_hess_cost = value;
+            elseif (strcmp(field, 'exact_hess_constr'))
+                obj.opts_struct.exact_hess_constr = value;
+
             elseif (strcmp(field, 'nlp_solver_max_iter'))
                 obj.opts_struct.nlp_solver_max_iter = value;
             elseif (strcmp(field, 'nlp_solver_tol_stat'))
@@ -115,6 +140,8 @@ classdef acados_ocp_opts < handle
                 obj.opts_struct.nlp_solver_ext_qp_res = value;
             elseif (strcmp(field, 'nlp_solver_step_length'))
                 obj.opts_struct.nlp_solver_step_length = value;
+            elseif (strcmp(field, 'rti_phase'))
+                obj.opts_struct.rti_phase = value;
             elseif (strcmp(field, 'nlp_solver_warm_start_first_qp'))
                 obj.opts_struct.nlp_solver_warm_start_first_qp = value;
             elseif (strcmp(field, 'qp_solver'))
@@ -155,6 +182,8 @@ classdef acados_ocp_opts < handle
                 obj.opts_struct.output_dir = value;
             elseif (strcmp(field, 'print_level'))
                 obj.opts_struct.print_level = value;
+            elseif (strcmp(field, 'levenberg_marquardt'))
+                obj.opts_struct.levenberg_marquardt = value;
             elseif (strcmp(field, 'compile_mex'))
                 disp(['Option compile_mex is not supported anymore,'...
                     'please use compile_interface instead or dont set the option.', ...

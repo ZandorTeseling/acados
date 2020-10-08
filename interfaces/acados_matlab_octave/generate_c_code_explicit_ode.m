@@ -62,7 +62,7 @@ generate_hess = 'true'; % TODO remove when not needed any more !!!
 %% load model
 % x
 is_template = false;
-if isa(model, 'acados_template_mex.acados_dae')
+if isa(model, 'acados_template_mex.acados_model_json')
     is_template = true;
     % names without sym
     x = model.x;
@@ -172,7 +172,7 @@ if is_template
     end
     cd 'c_generated_code'
     model_dir = [model_name, '_model'];
-    if ~exist(model_dir, 'dir')
+    if ~exist(fullfile(pwd, model_dir), 'dir')
         mkdir(model_dir);
     end
     cd(model_dir)

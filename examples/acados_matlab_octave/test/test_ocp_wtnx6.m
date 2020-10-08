@@ -46,7 +46,6 @@ sim_sens_forw = 'false';
 sim_num_stages = 4;
 sim_num_steps = 1;
 % ocp
-ocp_param_scheme = 'multiple_shooting_unif_grid';
 ocp_N = 40;
 ocp_nlp_solver = 'sqp';
 %ocp_nlp_solver = 'sqp_rti';
@@ -208,6 +207,7 @@ ocp_model.set('dim_nh_e', nh_e);
 ocp_model.set('dim_ns', ns);
 ocp_model.set('dim_ns_e', ns_e);
 ocp_model.set('dim_nsbx', nsbx);
+ocp_model.set('dim_nsbx_e', nsbx);
 ocp_model.set('dim_nsh', nsh);
 ocp_model.set('dim_nsh_e', nsh_e);
 ocp_model.set('dim_np', np);
@@ -262,6 +262,7 @@ ocp_model.set('constr_lh_e', lh_e);
 ocp_model.set('constr_uh_e', uh_e);
 % soft nonlinear constraints
 ocp_model.set('constr_Jsbx', Jsbx);
+ocp_model.set('constr_Jsbx_e', Jsbx);
 ocp_model.set('constr_Jsh', Jsh);
 ocp_model.set('constr_Jsh_e', Jsh_e);
 
@@ -276,7 +277,6 @@ ocp_model.model_struct;
 ocp_opts = acados_ocp_opts();
 ocp_opts.set('compile_interface', compile_interface);
 ocp_opts.set('codgen_model', codgen_model);
-ocp_opts.set('param_scheme', ocp_param_scheme);
 ocp_opts.set('param_scheme_N', ocp_N);
 ocp_opts.set('nlp_solver', ocp_nlp_solver);
 ocp_opts.set('nlp_solver_exact_hessian', ocp_nlp_solver_exact_hessian);
@@ -476,6 +476,21 @@ for ii=1:n_sim
     end
 
 end
+
+% test setter
+ocp.set('cost_z', ones(2,1), 1)
+ocp.set('cost_Z', ones(2,1), 1)
+ocp.set('cost_zl', ones(2,1), N-1)
+
+% get slack values
+for i = 0:N-1
+    sl = ocp.get('sl', i);
+    su = ocp.get('su', i);
+    t = ocp.get('t', i);
+end
+sl = ocp.get('sl', N);
+su = ocp.get('su', N);
+
 
 electrical_power = 0.944*97/100*x_sim(1,:).*x_sim(6,:);
 

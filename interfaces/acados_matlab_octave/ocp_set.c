@@ -50,11 +50,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     int acados_size;
     mxArray *mex_field;
     char fun_name[20] = "ocp_set";
-    char buffer [400]; // for error messages
+    char buffer [500]; // for error messages
 
-    int min_nrhs = 4;
     /* RHS */
-    const mxArray *C_ocp = prhs[0];
+    int min_nrhs = 5;
+
+    char *ext_fun_type = mxArrayToString( prhs[0] );
+
+    // C ocp
+    const mxArray *C_ocp = prhs[1];
     // plan
     ptr = (long long *) mxGetData( mxGetField( C_ocp, 0, "plan" ) );
     ocp_nlp_plan *plan = (ocp_nlp_plan *) ptr[0];
@@ -77,18 +81,16 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     ptr = (long long *) mxGetData( mxGetField( C_ocp, 0, "solver" ) );
     ocp_nlp_solver *solver = (ocp_nlp_solver *) ptr[0];
 
-    const mxArray *C_ext_fun_pointers = prhs[1];
+    const mxArray *C_ext_fun_pointers = prhs[2];
     // field
-    char *field = mxArrayToString( prhs[2] );
+    char *field = mxArrayToString( prhs[3] );
     // value
-    double *value = mxGetPr( prhs[3] );
+    double *value = mxGetPr( prhs[4] );
 
     // for checks
-    int matlab_size = (int) mxGetNumberOfElements( prhs[3] );
-    int nrow = (int) mxGetM( prhs[3] );
-    int ncol = (int) mxGetN( prhs[3] );
-
-    // mexPrintf("\nocp_set: %s, matlab_size %d\n", field, matlab_size);
+    int matlab_size = (int) mxGetNumberOfElements( prhs[4] );
+    int nrow = (int) mxGetM( prhs[4] );
+    int ncol = (int) mxGetN( prhs[4] );
 
     int N = dims->N;
     int nu = dims->nu[0];
@@ -103,7 +105,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     }
     else if (nrhs==min_nrhs+1)
     {
-        s0 = mxGetScalar( prhs[4] );
+        s0 = mxGetScalar( prhs[5] );
         if (s0 > N)
         {
             sprintf(buffer, "ocp_set: N < specified stage = %d\n", s0);
@@ -157,6 +159,26 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
             MEX_DIM_CHECK_VEC(fun_name, field, matlab_size, acados_size);
 
             ocp_nlp_constraints_model_set(config, dims, in, ii, "ubx", value);
+        }
+    }
+    else if (!strcmp(field, "constr_lbu"))
+    {
+        for (int ii=s0; ii<se; ii++)
+        {
+            acados_size = ocp_nlp_dims_get_from_attr(config, dims, out, ii, "lbu");
+            MEX_DIM_CHECK_VEC(fun_name, field, matlab_size, acados_size);
+
+            ocp_nlp_constraints_model_set(config, dims, in, ii, "lbu", value);
+        }
+    }
+    else if (!strcmp(field, "constr_ubu"))
+    {
+        for (int ii=s0; ii<se; ii++)
+        {
+            acados_size = ocp_nlp_dims_get_from_attr(config, dims, out, ii, "ubu");
+            MEX_DIM_CHECK_VEC(fun_name, field, matlab_size, acados_size);
+
+            ocp_nlp_constraints_model_set(config, dims, in, ii, "ubu", value);
         }
     }
     else if (!strcmp(field, "constr_D"))
@@ -265,10 +287,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
             }
         }
     }
-    // slacks, TODO(oj): _e stuff, but maybe this can be avoided!!
     else if (!strcmp(field, "cost_Z"))
     {
-        acados_size = ocp_nlp_dims_get_from_attr(config, dims, out, s0, "ns");
+        acados_size = ocp_nlp_dims_get_from_attr(config, dims, out, s0, "cost_Z");
         MEX_DIM_CHECK_VEC(fun_name, field, matlab_size, acados_size);
         for (int ii=s0; ii<se; ii++)
         {
@@ -277,7 +298,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     }
     else if (!strcmp(field, "cost_Zl"))
     {
-        acados_size = ocp_nlp_dims_get_from_attr(config, dims, out, s0, "ns");
+        acados_size = ocp_nlp_dims_get_from_attr(config, dims, out, s0, "Zl");
         MEX_DIM_CHECK_VEC(fun_name, field, matlab_size, acados_size);
         for (int ii=s0; ii<se; ii++)
         {
@@ -286,7 +307,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     }
     else if (!strcmp(field, "cost_Zu"))
     {
-        acados_size = ocp_nlp_dims_get_from_attr(config, dims, out, s0, "ns");
+        acados_size = ocp_nlp_dims_get_from_attr(config, dims, out, s0, "Zu");
         MEX_DIM_CHECK_VEC(fun_name, field, matlab_size, acados_size);
         for (int ii=s0; ii<se; ii++)
         {
@@ -295,7 +316,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     }
     else if (!strcmp(field, "cost_z"))
     {
-        acados_size = ocp_nlp_dims_get_from_attr(config, dims, out, s0, "ns");
+        acados_size = ocp_nlp_dims_get_from_attr(config, dims, out, s0, "cost_z");
         MEX_DIM_CHECK_VEC(fun_name, field, matlab_size, acados_size);
         for (int ii=s0; ii<se; ii++)
         {
@@ -304,7 +325,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     }
     else if (!strcmp(field, "cost_zl"))
     {
-        acados_size = ocp_nlp_dims_get_from_attr(config, dims, out, s0, "ns");
+        acados_size = ocp_nlp_dims_get_from_attr(config, dims, out, s0, "zl");
         MEX_DIM_CHECK_VEC(fun_name, field, matlab_size, acados_size);
         for (int ii=s0; ii<se; ii++)
         {
@@ -313,7 +334,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     }
     else if (!strcmp(field, "cost_zu"))
     {
-        acados_size = ocp_nlp_dims_get_from_attr(config, dims, out, s0, "ns");
+        acados_size = ocp_nlp_dims_get_from_attr(config, dims, out, s0, "zu");
         MEX_DIM_CHECK_VEC(fun_name, field, matlab_size, acados_size);
         for (int ii=s0; ii<se; ii++)
         {
@@ -435,9 +456,28 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
             ocp_nlp_out_set(config, dims, out, ii, "pi", value+ii*nx);
         }
     }
+    else if (!strcmp(field, "init_lam"))
+    {
+        for (int ii=s0; ii<se; ii++)
+        {
+            int nlam = ocp_nlp_dims_get_from_attr(config, dims, out, ii, "lam");
+            MEX_DIM_CHECK_VEC(fun_name, "lam", nrow*ncol, nlam);
+
+            ocp_nlp_out_set(config, dims, out, ii, "lam", value);
+        }
+    }
+    else if (!strcmp(field, "init_t"))
+    {
+        for (int ii=s0; ii<se; ii++)
+        {
+            int nt = ocp_nlp_dims_get_from_attr(config, dims, out, ii, "t");
+            MEX_DIM_CHECK_VEC(fun_name, "t", nrow*ncol, nt);
+
+            ocp_nlp_out_set(config, dims, out, ii, "t", value);
+        }
+    }
     else if (!strcmp(field, "p"))
     {
-        external_function_param_casadi *ext_fun_param_ptr;
         // mexPrintf("ocp_set p: nrhs %d \n", nrhs);
 
         // loop over number of external functions;
@@ -452,31 +492,68 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
             // loop over number of phases
             for (int jj=0; jj<Nf; jj++)
             {
-                ext_fun_param_ptr = (external_function_param_casadi *) ptr[jj];
-                // mexPrintf("ocp_set p: jj %d ext_fun_param_ptr %p \n", jj, ext_fun_param_ptr);
-                if (ext_fun_param_ptr!=0)
+                // external function param casadi
+                if (!strcmp(ext_fun_type, "casadi"))
                 {
-                    if (nrhs==min_nrhs)
+                    external_function_param_casadi *ext_fun_ptr = (external_function_param_casadi *) ptr[jj];
+                    if (ext_fun_ptr!=0)
                     {
-                        for (int kk=0; kk<NN[jj]; kk++)
+                        if (nrhs==min_nrhs) // all stages
                         {
-                            acados_size = (ext_fun_param_ptr+kk)->np;
-                            MEX_DIM_CHECK_VEC(fun_name, field, matlab_size, acados_size);
-                            (ext_fun_param_ptr+kk)->set_param(ext_fun_param_ptr+kk, value);
+                            for (int kk=0; kk<NN[jj]; kk++)
+                            {
+                                (ext_fun_ptr+kk)->get_nparam(ext_fun_ptr+kk, &acados_size);
+                                MEX_DIM_CHECK_VEC(fun_name, field, matlab_size, acados_size);
+                                (ext_fun_ptr+kk)->set_param(ext_fun_ptr+kk, value);
+                            }
+                        }
+                        else if (nrhs==min_nrhs+1) // one stage
+                        {
+                            int stage = mxGetScalar( prhs[5] );
+                            if (stage>=Nf_sum & stage<Nf_sum+NN[jj])
+                            {
+                                int kk = stage - Nf_sum;
+                                (ext_fun_ptr+kk)->get_nparam(ext_fun_ptr+kk, &acados_size);
+                                MEX_DIM_CHECK_VEC(fun_name, field, matlab_size, acados_size);
+                                (ext_fun_ptr+kk)->set_param(ext_fun_ptr+kk, value);
+                            }
                         }
                     }
-                    else if (nrhs==min_nrhs+1)
-                    {
-                        int stage = mxGetScalar( prhs[4] );
-                        if (stage>=Nf_sum & stage<Nf_sum+NN[jj])
-                        {
-                            acados_size = (ext_fun_param_ptr+stage)->np;
-                            MEX_DIM_CHECK_VEC(fun_name, field, matlab_size, acados_size);
-                            (ext_fun_param_ptr+stage)->set_param(ext_fun_param_ptr+stage, value);
-                        }
-                    }
+                    Nf_sum += NN[jj];
                 }
-                Nf_sum += NN[jj];
+                // external function param generic
+                else if (!strcmp(ext_fun_type, "generic"))
+                {
+                    external_function_param_generic *ext_fun_ptr = (external_function_param_generic *) ptr[jj];
+                    if (ext_fun_ptr!=0)
+                    {
+                        if (nrhs==min_nrhs) // all stages
+                        {
+                            for (int kk=0; kk<NN[jj]; kk++)
+                            {
+                                (ext_fun_ptr+kk)->get_nparam(ext_fun_ptr+kk, &acados_size);
+                                MEX_DIM_CHECK_VEC(fun_name, field, matlab_size, acados_size);
+                                (ext_fun_ptr+kk)->set_param(ext_fun_ptr+kk, value);
+                            }
+                        }
+                        else if (nrhs==min_nrhs+1) // one stage
+                        {
+                            int stage = mxGetScalar( prhs[5] );
+                            if (stage>=Nf_sum & stage<Nf_sum+NN[jj])
+                            {
+                                int kk = stage - Nf_sum;
+                                (ext_fun_ptr+kk)->get_nparam(ext_fun_ptr+kk, &acados_size);
+                                MEX_DIM_CHECK_VEC(fun_name, field, matlab_size, acados_size);
+                                (ext_fun_ptr+kk)->set_param(ext_fun_ptr+kk, value);
+                            }
+                        }
+                    }
+                    Nf_sum += NN[jj];
+                }
+                else
+                {
+                    MEX_FIELD_VALUE_NOT_SUPPORTED_SUGGEST(fun_name, "ext_fun_type", ext_fun_type, "casadi, generic");
+                }
             }
         }
     }
@@ -486,6 +563,17 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         MEX_DIM_CHECK_VEC(fun_name, field, matlab_size, acados_size);
         int nlp_solver_max_iter = (int) value[0];
         ocp_nlp_solver_opts_set(config, opts, "max_iter", &nlp_solver_max_iter);
+    }
+    else if (!strcmp(field, "rti_phase"))
+    {
+        acados_size = 1;
+        MEX_DIM_CHECK_VEC(fun_name, field, matlab_size, acados_size);
+        int rti_phase = (int) value[0];
+        if (plan->nlp_solver == SQP && rti_phase != 0)
+        {
+            MEX_FIELD_ONLY_SUPPORTED_FOR_SOLVER(fun_name, field, "sqp_rti")
+        }
+        ocp_nlp_solver_opts_set(config, opts, "rti_phase", &rti_phase);
     }
     else if (!strcmp(field, "qp_warm_start"))
     {
@@ -511,7 +599,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     else
     {
         MEX_FIELD_NOT_SUPPORTED_SUGGEST(fun_name, field, "p, constr_x0,\
- constr_lbx, constr_ubx, constr_C, constr_D, constr_lg, constr_ug, cost_y_ref[_e],\
+ constr_lbx, constr_ubx, constr_C, constr_D, constr_lg, constr_ug,\
+ constr_lbu, constr_ubu, cost_y_ref[_e],\
  cost_Vu, cost_Vx, cost_Vz, cost_W, cost_Z, cost_Zl, cost_Zu, cost_z,\
  cost_zl, cost_zu, init_x, init_u, init_z, init_xdot, init_gnsf_phi,\
  init_pi, nlp_solver_max_iter, qp_warm_start, warm_start_first_qp, print_level");

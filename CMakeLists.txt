@@ -58,6 +58,8 @@ else()
     set(BUILD_SHARED_LIBS ON CACHE STRING "Build shared libraries")
 endif()
 
+option(ACADOS_WITH_OPENMP "OpenMP Parallelization" ON)
+
 # Additional targets
 option(ACADOS_UNIT_TESTS "Compile Unit tests" OFF)
 option(ACADOS_EXAMPLES "Compile Examples" OFF)
@@ -74,6 +76,7 @@ option(ACADOS_MATLAB "The Matlab Interface" OFF)
 option(ACADOS_OCTAVE "The Octave Interface" OFF)
 option(ACADOS_OCTAVE_TEMPLATE "Template MEX Interface" OFF)
 option(ACADOS_PYTHON "Python Interface" OFF)
+
 
 # Set custom path
 set(CMAKE_INSTALL_PREFIX ${ACADOS_INSTALL_DIR})
@@ -103,10 +106,45 @@ endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -Wall -fdiagnostics-show-option")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -fdiagnostics-show-option")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -Wall -fdiagnostics-show-option")
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MT")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
+endif()
+
+# OPENMP
+if(ACADOS_WITH_OPENMP)
+    cmake_minimum_required(VERSION 3.9)
+    find_package(OpenMP)
+    if(OpenMP_CXX_FOUND AND OpenMP_C_FOUND)
+        # message(STATUS "OpenMP_CXX_FLAGS: ${OpenMP_CXX_FLAGS}, OpenMP_C_FLAGS: ${OpenMP_C_FLAGS}")
+        # add openmp compiler flags
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+
+        if(ACADOS_NUM_THREADS)
+            add_compile_definitions(ACADOS_NUM_THREADS=${ACADOS_NUM_THREADS})
+        endif()
+    else()
+        message(STATUS "OpenMP NOT found.")
+        set(ACADOS_WITH_OPENMP OFF)
+    endif()
+else()
+    set(ACADOS_WITH_OPENMP OFF)
+    message(STATUS "ACADOS_WITH_OPENMP: ${ACADOS_WITH_OPENMP}")
+endif()
+
+# uninstall
+if(NOT TARGET uninstall)
+    # Configure Uninstall
+    # https://gitlab.kitware.com/cmake/community/-/wikis/FAQ#can-i-do-make-uninstall-with-cmake
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/cmake/cmake_uninstall.cmake"
+        IMMEDIATE @ONLY)
+
+    add_custom_target(uninstall
+        "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake/cmake_uninstall.cmake")
 endif()
 
 # Rpath handling, see https://cmake.org/Wiki/CMake_RPATH_handling#What_is_RPATH_.3F
@@ -194,16 +232,8 @@ else()
     add_custom_target(lint echo "Lint is disabled")
 endif()
 
-# Configure Uninstall
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/cmake/cmake_uninstall.cmake"
-    IMMEDIATE @ONLY)
-add_custom_target(uninstall
-    # NOTE(dimitris): uninstall name clashes with submodules
-    "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake/cmake_uninstall.cmake")
-
 # Current config messages
+message(STATUS " ")
 message(STATUS "Target: BLASFEO is ${BLASFEO_TARGET}, HPIPM is ${HPIPM_TARGET}")
 message(STATUS "Linear algebra: ${LA}")
 message(STATUS "Matlab MEX (${ACADOS_MATLAB})")
@@ -212,3 +242,15 @@ message(STATUS "Octave Templates (${ACADOS_OCTAVE_TEMPLATE})")
 message(STATUS "System name:version ${CMAKE_SYSTEM_NAME}:${CMAKE_SYSTEM_VERSION}")
 message(STATUS "Build type is ${CMAKE_BUILD_TYPE}")
 message(STATUS "Installation directory is ${CMAKE_INSTALL_PREFIX}")
+if(ACADOS_WITH_OPENMP)
+    message(STATUS "OpenMP parallelization is ON")
+    if(ACADOS_NUM_THREADS)
+        message(STATUS "Number of threads for acados with openMP (ACADOS_NUM_THREADS) ${ACADOS_NUM_THREADS}")
+    else()
+        message(STATUS "Number of threads for acados with openMP (ACADOS_NUM_THREADS) not set, will use omp_get_max_threads")
+    endif()
+else()
+    message(STATUS "OpenMP parallelization is OFF")
+endif()
+
+message(STATUS " ")

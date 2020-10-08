@@ -62,6 +62,12 @@ classdef acados_sim < handle
                 end
             end
 
+            % check if path contains spaces
+            if ~isempty(strfind(obj.opts_struct.output_dir, ' '))
+                error(strcat('acados_ocp: Path should not contain spaces, got: ',...
+                    obj.opts_struct.output_dir));
+            end
+
             %% compile mex without model dependency
             % check if mex interface exists already
             if strcmp(obj.opts_struct.compile_interface, 'true')
@@ -91,7 +97,7 @@ classdef acados_sim < handle
             obj.C_sim = sim_create(obj.model_struct, obj.opts_struct);
 
             % generate and compile casadi functions
-            if (strcmp(obj.opts_struct.codgen_model, 'true'))
+            if (strcmp(obj.opts_struct.codgen_model, 'true') || strcmp(obj.opts_struct.compile_model, 'true'))
                 sim_generate_casadi_ext_fun(obj.model_struct, obj.opts_struct)
             end
 
@@ -128,11 +134,11 @@ classdef acados_sim < handle
 
 
         function delete(obj)
-            if ~isempty(obj.C_sim)
-                sim_destroy(obj.C_sim);
-            end
             if ~isempty(obj.C_sim_ext_fun)
                 sim_destroy_ext_fun(obj.model_struct, obj.C_sim_ext_fun);
+            end
+            if ~isempty(obj.C_sim)
+                sim_destroy(obj.C_sim);
             end
         end
 

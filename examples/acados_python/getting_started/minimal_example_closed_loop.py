@@ -31,6 +31,9 @@
 # POSSIBILITY OF SUCH DAMAGE.;
 #
 
+import sys
+sys.path.insert(0, 'common')
+
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
 from export_pendulum_ode_model import export_pendulum_ode_model
 from utils import plot_pendulum
@@ -52,12 +55,14 @@ ny_e = nx
 N = 20
 
 # set dimensions
-ocp.dims.nx  = nx
-ocp.dims.ny  = ny
-ocp.dims.ny_e = ny_e
-ocp.dims.nbu = nu
-ocp.dims.nu  = nu
-ocp.dims.N   = N
+ocp.dims.N = N
+# NOTE: all dimensions but N are now detected automatically in the
+#   Python interface, i.e. the following is redundant:
+# ocp.dims.nx  = nx
+# ocp.dims.ny  = ny
+# ocp.dims.ny_e = ny_e
+# ocp.dims.nbu = nu
+# ocp.dims.nu  = nu
 
 # set cost module
 ocp.cost.cost_type = 'LINEAR_LS'
@@ -112,11 +117,13 @@ simX[0,:] = xcurrent
 
 # closed loop
 for i in range(N):
+
     # solve ocp
     acados_ocp_solver.set(0, "lbx", xcurrent)
     acados_ocp_solver.set(0, "ubx", xcurrent)
 
     status = acados_ocp_solver.solve()
+
     if status != 0:
         raise Exception('acados acados_ocp_solver returned status {}. Exiting.'.format(status))
 
@@ -135,4 +142,4 @@ for i in range(N):
     simX[i+1,:] = xcurrent
 
 # plot results
-plot_pendulum(Tf/N, Fmax, simU, simX)
+plot_pendulum(np.linspace(0, Tf, N+1), Fmax, simU, simX)

@@ -16,6 +16,9 @@
     "acados_lib_path": [
         "str"
     ],
+    "problem_class": [
+        "str"
+    ],
     "constraints": {
         "constr_type": [
             "str"
@@ -93,6 +96,12 @@
             "ndarray",
             [
                 "nbx_0"
+            ]
+        ],
+        "idxbxe_0": [
+            "ndarray",
+            [
+                "nbxe_0"
             ]
         ],
         "lg": [
@@ -241,6 +250,42 @@
                 [
                     "nsbx_e"
                 ]
+        ],
+        "lsg": [
+            "ndarray",
+            [
+                "nsg"
+            ]
+        ],
+        "usg": [
+            "ndarray",
+            [
+                "nsg"
+            ]
+        ],
+        "idxsg": [
+            "ndarray",
+            [
+                "nsg"
+            ]
+        ],
+        "lsg_e": [
+            "ndarray",
+            [
+                "nsg_e"
+            ]
+        ],
+        "usg_e": [
+            "ndarray",
+            [
+                "nsg_e"
+            ]
+        ],
+        "idxsg_e": [
+            "ndarray",
+            [
+                "nsg_e"
+            ]
         ],
         "lsh": [
             "ndarray",
@@ -450,6 +495,15 @@
         "nbx_e": [
             "int"
         ],
+        "nbxe_0": [
+            "int"
+        ],
+        "nsg": [
+            "int"
+        ],
+        "nsg_e": [
+            "int"
+        ],
         "nsh": [
             "int"
         ],
@@ -527,7 +581,16 @@
         ]
     },
     "solver_options": {
+        "time_steps": [
+            "ndarray",
+            [
+                "N"
+            ]
+        ],
         "hessian_approx": [
+            "str"
+        ],
+        "regularize_method": [
             "str"
         ],
         "integrator_type": [
@@ -537,6 +600,9 @@
             "str"
         ],
         "nlp_solver_step_length": [
+            "float"
+        ],
+        "levenberg_marquardt": [
             "float"
         ],
         "qp_solver": [
@@ -556,6 +622,9 @@
         ],
         "sim_method_newton_iter": [
             "int"
+        ],
+        "sim_method_jac_reuse": [
+            "bool"
         ],
         "qp_solver_cond_N": [
             "int"
@@ -591,6 +660,21 @@
             "int"
         ],
         "print_level": [
+            "int"
+        ],
+        "initialize_t_slacks": [
+            "int"
+        ],
+        "exact_hess_cost": [
+            "int"
+        ],
+        "exact_hess_constr": [
+            "int"
+        ],
+        "exact_hess_dyn": [
+            "int"
+        ],
+        "ext_cost_num_hess": [
             "int"
         ],
         "model_external_shared_lib_dir": [

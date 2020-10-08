@@ -45,6 +45,121 @@
 
 
 /************************************************
+ * generic external parametric function
+ ************************************************/
+
+int external_function_param_generic_struct_size()
+{
+    return sizeof(external_function_param_generic);
+}
+
+
+
+void external_function_param_generic_set_fun(external_function_param_generic *fun, void *value)
+{
+    fun->fun = value;
+    return;
+}
+
+
+
+int external_function_param_generic_calculate_size(external_function_param_generic *fun, int np)
+{
+    // loop index
+    int ii;
+
+    // wrapper as evaluate function
+    fun->evaluate = &external_function_param_generic_wrapper;
+
+    // set param function
+    fun->get_nparam = &external_function_param_generic_get_nparam;
+    fun->set_param = &external_function_param_generic_set_param;
+
+    // set number of parameters
+    fun->np = np;
+
+    int size = 0;
+
+    // doubles
+    size += fun->np * sizeof(double); // p
+
+    size += 8;  // align to double
+
+    // make_int_multiple_of(64, &size);
+
+    return size;
+}
+
+
+
+void external_function_param_generic_assign(external_function_param_generic *fun, void *raw_memory)
+{
+    // loop index
+    int ii;
+
+    // save initial pointer to external memory
+    fun->ptr_ext_mem = raw_memory;
+
+    // char pointer for byte advances
+    char *c_ptr = raw_memory;
+
+    // align to double
+    align_char_to(8, &c_ptr);
+
+    // p
+    assign_and_advance_double(fun->np, &fun->p, &c_ptr);
+
+    assert((char *) raw_memory + external_function_param_generic_calculate_size(fun, fun->np) >= c_ptr);
+
+    return;
+}
+
+
+
+void external_function_param_generic_wrapper(void *self, ext_fun_arg_t *type_in, void **in, ext_fun_arg_t *type_out, void **out)
+{
+	// TODO somehow check on types ?????
+
+    // cast into external generic function
+    external_function_param_generic *fun = self;
+
+    // call casadi function
+    fun->fun(in, out, fun->p);
+
+    return;
+}
+
+
+
+void external_function_param_generic_get_nparam(void *self, int *np)
+{
+    // cast into external generic function
+    external_function_param_generic *fun = self;
+
+	*np = fun->np;
+
+    return;
+}
+
+
+
+void external_function_param_generic_set_param(void *self, double *p)
+{
+    // cast into external generic function
+    external_function_param_generic *fun = self;
+
+    // set value for all parameters
+    for (int ii = 0; ii < fun->np; ii++)
+    {
+        fun->p[ii] = p[ii];
+    }
+
+    return;
+}
+
+
+
+/************************************************
  * casadi utils
  ************************************************/
 
@@ -734,6 +849,7 @@ void external_function_casadi_wrapper(void *self, ext_fun_arg_t *type_in, void *
                 d_cvt_dvec_to_casadi(in[ii], (double *) fun->args[ii],
                                      (int *) fun->casadi_sparsity_in(ii));
                 break;
+
             case COLMAJ_ARGS:
                 d_cvt_colmaj_args_to_casadi(in[ii], (double *) fun->args[ii],
                                             (int *) fun->casadi_sparsity_in(ii));
@@ -781,6 +897,7 @@ void external_function_casadi_wrapper(void *self, ext_fun_arg_t *type_in, void *
                 d_cvt_casadi_to_dvec((double *) fun->res[ii], (int *) fun->casadi_sparsity_out(ii),
                                      out[ii]);
                 break;
+
             case COLMAJ_ARGS:
                 d_cvt_casadi_to_colmaj_args((double *) fun->res[ii],
                                             (int *) fun->casadi_sparsity_out(ii), out[ii]);
@@ -878,6 +995,7 @@ int external_function_param_casadi_calculate_size(external_function_param_casadi
     fun->evaluate = &external_function_param_casadi_wrapper;
 
     // set param function
+    fun->get_nparam = &external_function_param_casadi_get_nparam;
     fun->set_param = &external_function_param_casadi_set_param;
 
     // set number of parameters
@@ -1083,6 +1201,18 @@ void external_function_param_casadi_wrapper(void *self, ext_fun_arg_t *type_in, 
                 exit(1);
         }
     }
+
+    return;
+}
+
+
+
+void external_function_param_casadi_get_nparam(void *self, int *np)
+{
+    // cast into external casadi function
+    external_function_param_casadi *fun = self;
+
+	*np = fun->np;
 
     return;
 }

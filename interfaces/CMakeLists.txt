@@ -50,31 +50,64 @@ add_test(NAME octave_test_ocp
 endif()
 
 
-if(ACADOS_PYTHON) 
+if(ACADOS_PYTHON)
 add_test(NAME python_test_ocp
-        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started
+        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/tests
         python main_test.py)
 add_test(NAME python_pendulum_ocp_example
-        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started
+        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started/ocp
         python minimal_example_ocp.py)
-add_test(NAME python_pendulum_mhe_example
-        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started
+add_test(NAME python_nonuniform_discretization_ocp_example
+        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started/ocp
+        python nonuniform_discretization_example.py)
+add_test(NAME python_rti_loop_ocp_example
+        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started/ocp
+        python example_sqp_rti_loop.py)
+
+# MHE examples
+add_test(NAME python_pendulum_mhe_example_minimal
+        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started/mhe
         python minimal_example_mhe.py)
+add_test(NAME python_pendulum_mhe_example_noisy_param
+        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started/mhe
+        python minimal_example_mhe_with_noisy_param.py)
+add_test(NAME python_pendulum_mhe_example_param
+        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started/mhe
+        python minimal_example_mhe_with_param.py)
+
 add_test(NAME python_pendulum_ocp_cost_example
-        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started
+        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started/ocp
         python ocp_example_cost_formulations.py)
 add_test(NAME python_pendulum_sim_example
-        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started
+        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started/sim
         python minimal_example_sim.py)
+add_test(NAME python_pendulum_ext_sim_example
+        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started/sim
+        python extensive_example_sim.py)
 add_test(NAME python_pendulum_closed_loop_example
         COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started
         python minimal_example_closed_loop.py)
-add_test(NAME python_pendulum_GNSF_example
-        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started
-        python example_gnsf_ocp.py)
+
+# example_ocp_dynamics_formulations all versions
+add_test(NAME python_pendulum_ocp_IRK
+        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started/ocp
+        python example_ocp_dynamics_formulations.py --INTEGRATOR_TYPE=IRK)
+add_test(NAME python_pendulum_ocp_ERK
+        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started/ocp
+        python example_ocp_dynamics_formulations.py --INTEGRATOR_TYPE=ERK)
+add_test(NAME python_pendulum_ocp_DISCRETE
+        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started/ocp
+        python example_ocp_dynamics_formulations.py --INTEGRATOR_TYPE=DISCRETE)
+add_test(NAME python_pendulum_ocp_GNSF
+        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started/ocp
+        python example_ocp_dynamics_formulations.py --INTEGRATOR_TYPE=GNSF)
+
 add_test(NAME python_pendulum_soft_constraints_example
-        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/getting_started
-        python soft_constraint_example.py)
+        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/tests
+        python soft_constraint_test.py)
+add_test(NAME python_pendulum_parametric_nonlinear_constraint_h_test
+        COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/tests
+        python test_parametric_nonlinear_constraint_h.py)
 add_test(NAME python_pmsm_example
         COMMAND "${CMAKE_COMMAND}" -E chdir ${PROJECT_SOURCE_DIR}/examples/acados_python/pmsm_example
         python generate_c_code.py)

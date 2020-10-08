@@ -67,6 +67,11 @@ function render_acados_templates(acados_ocp_nlp_json_file)
     out_file = ['main_', model_name, '.c'];
     render_file( json_fullfile, template_dir, template_file, out_file, t_renderer_location )
 
+    % main_sim
+    template_file = 'main_sim.in.c';
+    out_file = ['main_sim_', model_name, '.c'];
+    render_file( json_fullfile, template_dir, template_file, out_file, t_renderer_location )
+
     % make_main_mex
     template_file = 'make_main_mex.in.m';
     out_file = ['make_main_mex_', model_name, '.m'];
@@ -130,11 +135,35 @@ function render_acados_templates(acados_ocp_nlp_json_file)
 
     % header files
     chdir([model_name, '_model']);
-
     template_file = 'model.in.h';
     out_file = [model_name, '_model.h'];
     render_file( json_fullfile, template_dir, template_file, out_file, t_renderer_location )
+    cd ..
 
+    cost_dir = [model_name, '_cost'];
+    if ~(exist(cost_dir, 'dir'))
+        mkdir(cost_dir);
+    end
+    chdir(cost_dir);
+    
+    if strcmp(acados_ocp.cost.cost_type, 'NONLINEAR_LS')
+        template_file = 'cost_y_fun.in.h';
+        out_file = [model_name, '_cost_y_fun.h'];
+        render_file( json_fullfile, template_dir, template_file, out_file, t_renderer_location )
+    elseif strcmp(acados_ocp.cost.cost_type, 'EXTERNAL')
+        template_file = 'external_cost.in.h';
+        out_file = [model_name, '_external_cost.h'];
+        render_file( json_fullfile, template_dir, template_file, out_file, t_renderer_location )
+    end
+    if strcmp(acados_ocp.cost.cost_type_e, 'NONLINEAR_LS')
+        template_file = 'cost_y_e_fun.in.h';
+        out_file = [model_name, '_cost_y_e_fun.h'];
+        render_file( json_fullfile, template_dir, template_file, out_file, t_renderer_location )
+    elseif strcmp(acados_ocp.cost.cost_type_e, 'EXTERNAL')
+        template_file = 'external_cost_e.in.h';
+        out_file = [model_name, '_external_cost_e.h'];
+        render_file( json_fullfile, template_dir, template_file, out_file, t_renderer_location )
+    end
     cd ..
 
     % constraints
@@ -230,7 +259,7 @@ function set_up_t_renderer( t_renderer_location )
         elseif ismac()
             suffix = '-osx';
         elseif ispc()
-            suffix = '-windows.exe';
+            suffix = '-windows';
         end
         acados_root_dir = getenv('ACADOS_INSTALL_DIR');
 

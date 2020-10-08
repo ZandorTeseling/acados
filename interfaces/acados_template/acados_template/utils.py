@@ -35,9 +35,9 @@ import os, sys, json
 import urllib.request
 import shutil
 import numpy as np
-from casadi import SX, MX, DM
+from casadi import SX, MX, DM, Function, CasadiMeta
 
-ALLOWED_CASADI_VERSIONS = ('3.5.1', '3.4.5', '3.4.0')
+ALLOWED_CASADI_VERSIONS = ('3.5.3', '3.5.2', '3.5.1', '3.4.5', '3.4.0')
 TERA_VERSION = "0.0.34"
 
 def get_acados_path():
@@ -83,11 +83,17 @@ def is_column(x):
 def is_empty(x):
     if isinstance(x, (MX, SX, DM)):
         return x.is_empty()
+    elif isinstance(x, np.ndarray):
+        if np.prod(x.shape) == 0:
+            return True
+        else:
+            return False
     elif x == None or x == []:
         return True
     else:
-        raise Exception("is_empty expects one of the following types: casadi.MX, casadi.SX, None, empty list."
-                        + " Got: " + str(type(x)))
+        raise Exception("is_empty expects one of the following types: casadi.MX, casadi.SX, "
+                        + "None, numpy array empty list. Got: " + str(type(x)))
+
 
 def casadi_length(x):
     if isinstance(x, (MX, SX, DM)):
@@ -242,7 +248,7 @@ def acados_class2dict(class_instance):
     return out
 
 
-def ocp_check_json_against_layout(ocp_nlp, ocp_dims):
+def ocp_check_against_layout(ocp_nlp, ocp_dims):
     """
     Check dimensions against layout
     Parameters
@@ -259,40 +265,44 @@ def ocp_check_json_against_layout(ocp_nlp, ocp_dims):
     with open(acados_path + '/acados_layout.json', 'r') as f:
         ocp_nlp_layout = json.load(f)
 
-    ocp_check_json_against_layout_recursion(ocp_nlp, ocp_dims, ocp_nlp_layout)
+    ocp_check_against_layout_recursion(ocp_nlp, ocp_dims, ocp_nlp_layout)
     return
 
 
 
-def ocp_check_json_against_layout_recursion(ocp_nlp, ocp_dims, ocp_nlp_layout):
+def ocp_check_against_layout_recursion(ocp_nlp, ocp_dims, layout):
 
     for key, item in ocp_nlp.items():
 
-        if isinstance(item, dict):
-            item = ocp_check_json_against_layout_recursion(item, ocp_dims, ocp_nlp_layout[key])
+        try:
+            layout_of_key = layout[key]
+        except KeyError:
+            raise Exception("ocp_check_against_layout_recursion: field" \
+                            " '{0}' is not in layout but in OCP description.".format(key))
 
-        if 'ndarray' in ocp_nlp_layout[key]:
+        if isinstance(item, dict):
+            ocp_check_against_layout_recursion(item, ocp_dims, layout_of_key)
+
+        if 'ndarray' in layout_of_key:
             if isinstance(item, int) or isinstance(item, float):
                 item = np.array([item])
-        if isinstance(item, (list, np.ndarray)) and (ocp_nlp_layout[key][0] != 'str'):
+        if isinstance(item, (list, np.ndarray)) and (layout_of_key[0] != 'str'):
             dim_layout = []
-            dim_names = ocp_nlp_layout[key][1]
+            dim_names = layout_of_key[1]
 
             for dim_name in dim_names:
                 dim_layout.append(ocp_dims[dim_name])
 
             dims = tuple(dim_layout)
-            if item == []:
-                try:
-                    item = np.reshape(item, dims)
-                except:
-                    raise Exception('acados -- mismatching dimensions for field {0}. ' \
-                         'Provided data has dimensions [], ' \
-                         'while associated dimensions {1} are {2}' \
-                             .format(key, dim_names, dims))
-            else:
-                item = np.array(item)
-                item_dims = item.shape
+
+            item = np.array(item)
+            item_dims = item.shape
+            if len(item_dims) != len(dims):
+                raise Exception('Mismatching dimensions for field {0}. ' \
+                    'Expected {1} dimensional array, got {2} dimensional array.' \
+                        .format(key, len(dims), len(item_dims)))
+
+            if np.prod(item_dims) != 0 or np.prod(dims) != 0:
                 if dims != item_dims:
                     raise Exception('acados -- mismatching dimensions for field {0}. ' \
                         'Provided data has dimensions {1}, ' \
@@ -334,3 +344,84 @@ def J_to_idx_slack(J):
     if not i_idx == ncol:
             raise Exception('J_to_idx_slack: J must contain a 1 in every column!')
     return idx
+
+
+def acados_dae_model_json_dump(model):
+
+    # load model
+    x = model.x
+    xdot = model.xdot
+    u = model.u
+    z = model.z
+    p = model.p
+
+    f_impl = model.f_impl_expr
+    model_name = model.name
+
+    # create struct with impl_dae_fun, casadi_version
+    fun_name = model_name + '_impl_dae_fun'
+    impl_dae_fun = Function(fun_name, [x, xdot, u, z, p], [f_impl])
+
+    casadi_version = CasadiMeta.version()
+    str_impl_dae_fun = impl_dae_fun.serialize()
+
+    dae_dict = {"str_impl_dae_fun": str_impl_dae_fun, "casadi_version": casadi_version}
+
+    # dump
+    json_file = model_name + '_acados_dae.json'
+    with open(json_file, 'w') as f:
+        json.dump(dae_dict, f, default=np_array_to_list, indent=4, sort_keys=True)
+    print("dumped ", model_name, " dae to file:", json_file, "\n")
+
+
+def set_up_imported_gnsf_model(acados_formulation):
+
+    gnsf = acados_formulation.gnsf_model
+
+    # check CasADi version
+    dump_casadi_version = gnsf['casadi_version']
+    casadi_version = CasadiMeta.version()
+
+    if not casadi_version == dump_casadi_version:
+        print("WARNING: GNSF model was dumped with another CasADi version.\n"
+                + "This might yield errors. Please use the same version for compatibility, serialize version: "
+                + dump_casadi_version + " current Python CasADi verison: " + casadi_version)
+        input("Press any key to attempt to continue...")
+
+    # load model
+    phi_fun = Function.deserialize(gnsf['phi_fun'])
+    phi_fun_jac_y = Function.deserialize(gnsf['phi_fun_jac_y'])
+    phi_jac_y_uhat = Function.deserialize(gnsf['phi_jac_y_uhat'])
+    get_matrices_fun = Function.deserialize(gnsf['get_matrices_fun'])
+
+    # obtain gnsf dimensions
+    size_gnsf_A = get_matrices_fun.size_out(0)
+    acados_formulation.dims.gnsf_nx1 = size_gnsf_A[1]
+    acados_formulation.dims.gnsf_nz1 = size_gnsf_A[0] - size_gnsf_A[1]
+    acados_formulation.dims.gnsf_nuhat = max(phi_fun.size_in(1))
+    acados_formulation.dims.gnsf_ny = max(phi_fun.size_in(0))
+    acados_formulation.dims.gnsf_nout = max(phi_fun.size_out(0))
+
+    # save gnsf functions in model
+    acados_formulation.model.phi_fun = phi_fun
+    acados_formulation.model.phi_fun_jac_y = phi_fun_jac_y
+    acados_formulation.model.phi_jac_y_uhat = phi_jac_y_uhat
+    acados_formulation.model.get_matrices_fun = get_matrices_fun
+
+    if "f_lo_fun_jac_x1k1uz" in gnsf:
+        f_lo_fun_jac_x1k1uz = Function.deserialize(gnsf['f_lo_fun_jac_x1k1uz'])
+        acados_formulation.model.f_lo_fun_jac_x1k1uz = f_lo_fun_jac_x1k1uz
+    else:
+        dummy_var_x1 = SX.sym('dummy_var_x1', acados_formulation.dims.gnsf_nx1)
+        dummy_var_x1dot = SX.sym('dummy_var_x1dot', acados_formulation.dims.gnsf_nx1)
+        dummy_var_z1 = SX.sym('dummy_var_z1', acados_formulation.dims.gnsf_nz1)
+        dummy_var_u = SX.sym('dummy_var_z1', acados_formulation.dims.nu)
+        dummy_var_p = SX.sym('dummy_var_z1', acados_formulation.dims.np)
+        empty_var = SX.sym('empty_var', 0, 0)
+
+        empty_fun = Function('empty_fun', \
+            [dummy_var_x1, dummy_var_x1dot, dummy_var_z1, dummy_var_u, dummy_var_p],
+                [empty_var])
+        acados_formulation.model.f_lo_fun_jac_x1k1uz = empty_fun
+
+    del acados_formulation.gnsf_model

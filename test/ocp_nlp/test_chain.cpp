@@ -1230,8 +1230,8 @@ void setup_and_solve_nlp(int NN,
 
                 stage_cost_nls = (ocp_nlp_cost_nls_model *) nlp_in->cost[i];
 
-                // nls_res_jac
-                stage_cost_nls->nls_res_jac = (external_function_generic *) &ls_cost_jac_casadi[i];
+                // nls_y_fun_jac
+                stage_cost_nls->nls_y_fun_jac = (external_function_generic *) &ls_cost_jac_casadi[i];
 
                 // W
                 blasfeo_dgese(ny[i], ny[i], 0.0, &stage_cost_nls->W, 0, 0);
@@ -1437,14 +1437,17 @@ void setup_and_solve_nlp(int NN,
     status = ocp_nlp_solve(solver, nlp_in, nlp_out);
 
     double max_res = 0.0;
-    double inf_norm_res_g = ((ocp_nlp_sqp_memory *)solver->mem)->nlp_res->inf_norm_res_g;
-    double inf_norm_res_b = ((ocp_nlp_sqp_memory *)solver->mem)->nlp_res->inf_norm_res_b;
-    double inf_norm_res_d = ((ocp_nlp_sqp_memory *)solver->mem)->nlp_res->inf_norm_res_d;
-    double inf_norm_res_m = ((ocp_nlp_sqp_memory *)solver->mem)->nlp_res->inf_norm_res_m;
-    max_res = (inf_norm_res_g > max_res) ? inf_norm_res_g : max_res;
-    max_res = (inf_norm_res_b > max_res) ? inf_norm_res_b : max_res;
-    max_res = (inf_norm_res_d > max_res) ? inf_norm_res_d : max_res;
-    max_res = (inf_norm_res_m > max_res) ? inf_norm_res_m : max_res;
+
+    double inf_norm_res_stat, inf_norm_res_eq, inf_norm_res_ineq, inf_norm_res_comp;
+    ocp_nlp_get(config, solver, "res_stat", &inf_norm_res_stat);
+    ocp_nlp_get(config, solver, "res_eq", &inf_norm_res_eq);
+    ocp_nlp_get(config, solver, "res_ineq", &inf_norm_res_ineq);
+    ocp_nlp_get(config, solver, "res_comp", &inf_norm_res_comp);
+
+    max_res = (inf_norm_res_stat > max_res) ? inf_norm_res_stat : max_res;
+    max_res = (inf_norm_res_eq > max_res) ? inf_norm_res_eq : max_res;
+    max_res = (inf_norm_res_ineq > max_res) ? inf_norm_res_ineq : max_res;
+    max_res = (inf_norm_res_comp > max_res) ? inf_norm_res_comp : max_res;
 
     std::cout << "max residuals: " << max_res << std::endl;
     REQUIRE(status == 0);

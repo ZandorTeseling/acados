@@ -39,6 +39,7 @@ classdef acados_ocp < handle
         model_struct
         opts_struct
         acados_ocp_nlp_json
+        ext_fun_type
     end % properties
 
 
@@ -54,7 +55,7 @@ classdef acados_ocp < handle
             addpath(obj.opts_struct.output_dir);
 
             % check model consistency
-            obj.model_struct = create_consistent_empty_fields(obj.model_struct);
+            obj.model_struct = create_consistent_empty_fields(obj.model_struct, obj.opts_struct);
 
             % detect GNSF structure
             if (strcmp(obj.opts_struct.sim_method, 'irk_gnsf'))
@@ -65,6 +66,9 @@ classdef acados_ocp < handle
                     obj.model_struct = get_gnsf_structure(obj.model_struct);
                 end
             end
+
+            % store ext_fun_type
+            obj.ext_fun_type = obj.model_struct.ext_fun_type;
 
             % detect cost type
             if (strcmp(obj.model_struct.cost_type, 'auto'))
@@ -82,8 +86,14 @@ classdef acados_ocp < handle
                 obj.model_struct = detect_constr(obj.model_struct, 1);
             end
 
-            % detect dimensions
-            obj.model_struct = detect_dims_ocp(obj.model_struct);
+            % detect dimensions & sanity checks
+            [obj.model_struct, obj.opts_struct] = detect_dims_ocp(obj.model_struct, obj.opts_struct);
+
+            % check if path contains spaces
+            if ~isempty(strfind(obj.opts_struct.output_dir, ' '))
+                error(strcat('acados_ocp: Path should not contain spaces, got: ',...
+                    obj.opts_struct.output_dir));
+            end
 
             % compile mex interface (without model dependency)
             if ( strcmp(obj.opts_struct.compile_interface, 'true') )
@@ -129,11 +139,16 @@ classdef acados_ocp < handle
                 disp('found compiled acados MEX interface')
             end
 
-            % create C object
-            obj.C_ocp = ocp_create(obj.model_struct, obj.opts_struct);
+            try
+                % create C object
+                obj.C_ocp = ocp_create(obj.model_struct, obj.opts_struct);
+            catch ex
+                str = sprintf('Exception:\n\t%s\n\t%s\n',ex.identifier,ex.message);
+                error(str);
+            end
 
             % generate and compile casadi functions
-            if (strcmp(obj.opts_struct.codgen_model, 'true'))
+            if (strcmp(obj.opts_struct.codgen_model, 'true') || strcmp(obj.opts_struct.compile_model, 'true'))
                 ocp_generate_casadi_ext_fun(obj.model_struct, obj.opts_struct);
             end
 
@@ -166,6 +181,9 @@ classdef acados_ocp < handle
             ocp_eval_param_sens(obj.C_ocp, field, stage, index);
         end
 
+        function value = get_cost(obj)
+            value = ocp_get_cost(obj.C_ocp);
+        end
 
         function set(varargin)
             obj = varargin{1};
@@ -175,10 +193,10 @@ classdef acados_ocp < handle
                 error('field must be a char vector, use '' ''');
             end
             if nargin==3
-                ocp_set(obj.C_ocp, obj.C_ocp_ext_fun, field, value);
+                ocp_set(obj.ext_fun_type, obj.C_ocp, obj.C_ocp_ext_fun, field, value);
             elseif nargin==4
                 stage = varargin{4};
-                ocp_set(obj.C_ocp, obj.C_ocp_ext_fun, field, value, stage);
+                ocp_set(obj.ext_fun_type, obj.C_ocp, obj.C_ocp_ext_fun, field, value, stage);
             else
                 disp('acados_ocp.set: wrong number of input arguments (2 or 3 allowed)');
             end

@@ -31,9 +31,10 @@
 % POSSIBILITY OF SUCH DAMAGE.;
 %
 
-%% test of native matlab interface
-clear all
+function model = test_template_pendulum_ocp(cost_type)
+% supports cost_type = auto, nonlinear_ls
 
+%% test of native matlab interface
 model_path = fullfile(pwd,'..','pendulum_on_cart_model');
 addpath(model_path)
 
@@ -68,8 +69,19 @@ ocp_model.set('sym_u', model.sym_u);
 ocp_model.set('sym_xdot', model.sym_xdot);
 
 % cost
+ocp_model.set('cost_type', cost_type);
+ocp_model.set('cost_type_e', cost_type);
+
+if strcmp(cost_type, 'auto') || strcmp(cost_type, 'ext_cost')
 ocp_model.set('cost_expr_ext_cost', model.expr_ext_cost);
 ocp_model.set('cost_expr_ext_cost_e', model.expr_ext_cost_e);
+else % nonlinear_ls
+ocp_model.set('cost_W', model.W);
+ocp_model.set('cost_expr_y', model.cost_expr_y);
+ocp_model.set('cost_W_e', model.W_e);
+ocp_model.set('cost_expr_y_e', model.cost_expr_y_e);
+end
+
 
 % dynamics
 if (strcmp(sim_method, 'erk'))
@@ -144,9 +156,9 @@ x_t = t_ocp.get('x');
 status = t_ocp.get('status');
 
 if status~=0
-    error('test_ocp_templated_mex: solution of templated MEX failed!');
+    error('test_template_pendulum_ocp: solution of templated MEX failed!');
 else
-    fprintf('\ntest_ocp_templated_mex: templated MEX success!\n');
+    fprintf('\ntest_template_pendulum_ocp: templated MEX success!\n');
 end
 
 
@@ -158,14 +170,15 @@ err_x = max(max(abs(x_ref - x_t)))
 tol_x = 1e-6;
 tol_u = 1e-5;
 if err_x > tol_x
-    error(['test_ocp_templated_mex: solution of templated MEX and original MEX',...
+    error(['test_template_pendulum_ocp: solution of templated MEX and original MEX',...
          ' differ too much. error in states is ', num2str(err_x),...
          '. Should be less then ', num2str(tol_x) ]);
 elseif err_u > tol_u
-    error(['test_ocp_templated_mex: solution of templated MEX and original MEX',...
+    error(['test_template_pendulum_ocp: solution of templated MEX and original MEX',...
          ' differ too much. error in controls is ', num2str(err_x),...
          '. Should be less then ', num2str(tol_x) ]);
 end
 
 cd ..
 clear all
+end

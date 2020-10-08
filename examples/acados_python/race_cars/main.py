@@ -35,7 +35,7 @@
 
 import time, os
 import numpy as np
-from acados_settings import *
+from acados_settings_dev import *
 from plotFcn import *
 from tracks.readDataFcn import getTrack
 import matplotlib.pyplot as plt
@@ -87,7 +87,7 @@ for i in range(Nsim):
 
     status = acados_solver.solve()
     if status != 0:
-        raise Exception("acados returned status {} in closed loop iteration {}. Exiting.".format(status, i))
+        print("acados returned status {} in closed loop iteration {}.".format(status, i))
 
     elapsed = time.time() - t
 

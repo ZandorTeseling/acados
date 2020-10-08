@@ -34,45 +34,37 @@
 function ocp_generate_c_code(obj)
     %% check if formulation is supported
     % add checks for
-    if ~strcmp( obj.model_struct.cost_type, 'linear_ls' ) || ...
-        ~strcmp( obj.model_struct.cost_type_e, 'linear_ls' )
-        error(['mex templating does only support linear_ls cost for now.',...
-            ' Got cost_type: %s, cost_type_e: %s.\nNotice that it might still',...
-            'be possible to solve the OCP from MATLAB.'], obj.model_struct.cost_type,...
-            obj.model_struct.cost_type_e);
-        % TODO: add
-        % nonlinear least-squares
-        % external cost
-    elseif ~strcmp( obj.opts_struct.nlp_solver_exact_hessian, 'false')
-        error(['mex templating does only support nlp_solver_exact_hessian = "false",',...
-            'i.e. Gauss-Newton Hessian approximation for now.\n',...
-            'Got nlp_solver_exact_hessian = "%s"\n. Notice that it might still be possible to solve the OCP from MATLAB.'],...
-            obj.opts_struct.nlp_solver_exact_hessian);
-        % TODO: add exact Hessian
-    elseif strcmp( obj.model_struct.dyn_type, 'discrete')
-        error('mex templating does only support discrete dynamics for now. Notice that it might still be possible to solve the OCP from MATLAB.');
-        % TODO: implement
-    elseif strcmp( obj.opts_struct.sim_method, 'irk_gnsf')
+    if strcmp( obj.opts_struct.sim_method, 'irk_gnsf')
         error('mex templating does not support irk_gnsf integrator yet. Notice that it might still be possible to solve the OCP from MATLAB.');
         % TODO: implement
     end
 
-    if ~(strcmp(obj.opts_struct.param_scheme, 'multiple_shooting_unif_grid'))
-        error(['mex templating does only support uniform discretizations for shooting nodes']);
+    %% create folder
+    if ~exist(fullfile(pwd,'c_generated_code'), 'dir')
+        mkdir(fullfile(pwd, 'c_generated_code'))
     end
-
     %% generate C code for CasADi functions
     % dynamics
     if (strcmp(obj.model_struct.dyn_type, 'explicit'))
         generate_c_code_explicit_ode(obj.acados_ocp_nlp_json.model);
     elseif (strcmp(obj.model_struct.dyn_type, 'implicit'))
         if (strcmp(obj.opts_struct.sim_method, 'irk'))
-            opts.generate_hess = 1;
+            opts.sens_hess = 'true';
             generate_c_code_implicit_ode(...
                 obj.acados_ocp_nlp_json.model, opts);
         end
+    elseif (strcmp(obj.model_struct.dyn_type, 'discrete'))
+        generate_c_code_disc_dyn(obj.acados_ocp_nlp_json.model);
     end
-    
+
+    % cost
+    if strcmp(obj.model_struct.cost_type, 'nonlinear_ls')
+        generate_c_code_nonlinear_least_squares( obj.model_struct, obj.opts_struct,...
+              fullfile(pwd, 'c_generated_code', [obj.model_struct.name '_cost']) );
+    elseif strcmp(obj.model_struct.cost_type, 'ext_cost')
+        generate_c_code_ext_cost( obj.model_struct, obj.opts_struct,...
+              fullfile(pwd, 'c_generated_code', [obj.model_struct.name '_cost']) );
+    end
     % constraints
     if strcmp(obj.model_struct.constr_type, 'bgh') && obj.model_struct.dim_nh > 0
         generate_c_code_nonlinear_constr( obj.model_struct, obj.opts_struct,...
@@ -89,6 +81,8 @@ function ocp_generate_c_code(obj)
     obj.acados_ocp_nlp_json.model = model;
 
     %% post process numerical data (mostly cast scalars to 1-dimensional cells)
+    dims = obj.acados_ocp_nlp_json.dims;
+
     constr = obj.acados_ocp_nlp_json.constraints;
     props = fieldnames(constr);
     for iprop = 1:length(props)
@@ -115,6 +109,16 @@ function ocp_generate_c_code(obj)
     end
     obj.acados_ocp_nlp_json.cost = cost;
 
+    % for cost type not LINEAR_LS, fill matrices with zeros
+    if ~strcmp(cost.cost_type, 'LINEAR_LS')
+        cost.Vx = zeros(dims.ny, dims.nx);
+        cost.Vu = zeros(dims.ny, dims.nu);
+        cost.Vz = zeros(dims.ny, dims.nz);
+    end
+    if ~strcmp(cost.cost_type_e, 'LINEAR_LS')
+        cost.Vx_e = zeros(dims.ny_e, dims.nx);
+    end
+
     %% load JSON layout
     acados_folder = getenv('ACADOS_INSTALL_DIR');
     json_layout_filename = fullfile(acados_folder, 'interfaces',...
@@ -127,7 +131,6 @@ function ocp_generate_c_code(obj)
     % end
 
     %% reshape constraints
-    dims = obj.acados_ocp_nlp_json.dims;
     constr = obj.acados_ocp_nlp_json.constraints;
     constr_layout = acados_layout.constraints;
     fields = fieldnames(constr_layout);
@@ -166,14 +169,38 @@ function ocp_generate_c_code(obj)
             try
                 cost.(fields{i}) = reshape(cost.(fields{i}), this_dims);
             catch e
-                    error(['error while reshaping cost.' fields{i} ...
-                        ' to dimension ' num2str(this_dims), ', got ',...
-                        num2str( size(cost.(fields{i}) )) , 10,...
-                        e.message ]);
+                error(['error while reshaping cost.' fields{i} ...
+                    ' to dimension ' num2str(this_dims), ', got ',...
+                    num2str( size(cost.(fields{i}) )) , 10,...
+                    e.message ]);
             end
         end
     end
     obj.acados_ocp_nlp_json.cost = cost;
+
+    %% reshape opts
+    opts = obj.acados_ocp_nlp_json.solver_options;
+    opts_layout = acados_layout.solver_options;
+    fields = fieldnames(opts_layout);
+    for i = 1:numel(fields)
+        if strcmp(opts_layout.(fields{i}){1}, 'ndarray')
+            property_dim_names = opts_layout.(fields{i}){2};
+            if length(property_dim_names) == 1 % vector
+                this_dims = [1, dims.(property_dim_names{1})];
+            else % matrix
+                this_dims = [dims.(property_dim_names{1}), dims.(property_dim_names{2})];
+            end
+            try
+                opts.(fields{i}) = reshape(opts.(fields{i}), this_dims);
+            catch e
+                error(['error while reshaping opts.' fields{i} ...
+                    ' to dimension ' num2str(this_dims), ', got ',...
+                    num2str( size(opts.(fields{i}) )) , 10,...
+                    e.message ]);
+            end
+        end
+    end
+    obj.acados_ocp_nlp_json.solver_options = opts;
 
     % parameter values
     obj.acados_ocp_nlp_json.parameter_values = reshape(num2cell(obj.acados_ocp_nlp_json.parameter_values), [ 1, dims.np]);

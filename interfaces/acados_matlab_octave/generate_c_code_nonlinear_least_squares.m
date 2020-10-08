@@ -32,7 +32,7 @@
 %
 
 
-function generate_c_code_nonlinear_least_squares( model, opts )
+function generate_c_code_nonlinear_least_squares( model, opts, target_dir )
 
 %% import casadi
 import casadi.*
@@ -72,11 +72,20 @@ end
 
 model_name = model.name;
 
+% cd to target folder
+if nargin > 2
+    original_dir = pwd;
+    if ~exist(target_dir, 'dir')
+        mkdir(target_dir);
+    end
+    chdir(target_dir)
+end
+
 if isfield(model, 'cost_expr_y')
     fun = model.cost_expr_y;
     % generate jacobians
-    jac_x       = jacobian(fun, x);
-    jac_u       = jacobian(fun, u);
+    jac_x = jacobian(fun, x);
+    jac_u = jacobian(fun, u);
     % output symbolics
     ny = length(fun);
     if isSX
@@ -89,7 +98,8 @@ if isfield(model, 'cost_expr_y')
     y_hess = jacobian(y_adj, [u; x]);
     % Set up functions
     y_fun = Function([model_name,'_cost_y_fun'], {x, u, p}, {fun});
-    y_fun_jac_ut_xt = Function([model_name,'_cost_y_fun_jac_ut_xt'], {x, u, p}, {fun, [jac_u'; jac_x']});
+    y_fun_jac_ut_xt = Function([model_name,'_cost_y_fun_jac_ut_xt'],...
+                              {x, u, p}, {fun, [jac_u'; jac_x']});
     y_hess = Function([model_name,'_cost_y_hess'], {x, u, y, p}, {y_hess});
     % generate C code
     y_fun.generate([model_name,'_cost_y_fun'], casadi_opts);
@@ -119,5 +129,11 @@ if isfield(model, 'cost_expr_y_e')
     y_e_fun.generate([model_name,'_cost_y_e_fun'], casadi_opts);
     y_e_fun_jac_ut_xt.generate([model_name,'_cost_y_e_fun_jac_ut_xt'], casadi_opts);
     y_e_hess.generate([model_name,'_cost_y_e_hess'], casadi_opts);
+end
+
+if nargin > 2
+    chdir(original_dir)
+end
+
 end
 

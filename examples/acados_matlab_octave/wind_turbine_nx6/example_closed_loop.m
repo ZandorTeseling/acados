@@ -56,7 +56,6 @@ sim_sens_forw = 'false';
 sim_num_stages = 4;
 sim_num_steps = 1;
 % ocp
-ocp_param_scheme = 'multiple_shooting_unif_grid';
 ocp_N = 40;
 ocp_nlp_solver = 'sqp';
 %ocp_nlp_solver = 'sqp_rti';
@@ -210,12 +209,14 @@ ocp_model.set('dim_nu', nu);
 ocp_model.set('dim_ny', ny);
 ocp_model.set('dim_ny_e', ny_e);
 ocp_model.set('dim_nbx', nbx);
+ocp_model.set('dim_nbx_e', nbx);
 ocp_model.set('dim_nbu', nbu);
 ocp_model.set('dim_nh', nh);
 ocp_model.set('dim_nh_e', nh_e);
 ocp_model.set('dim_ns', ns);
 ocp_model.set('dim_ns_e', ns_e);
 ocp_model.set('dim_nsbx', nsbx);
+ocp_model.set('dim_nsbx_e', nsbx);
 ocp_model.set('dim_nsh', nsh);
 ocp_model.set('dim_nsh_e', nsh_e);
 ocp_model.set('dim_np', np);
@@ -254,6 +255,9 @@ end
 ocp_model.set('constr_Jbx', Jbx);
 ocp_model.set('constr_lbx', lbx);
 ocp_model.set('constr_ubx', ubx);
+ocp_model.set('constr_Jbx_e', Jbx);
+ocp_model.set('constr_lbx_e', lbx);
+ocp_model.set('constr_ubx_e', ubx);
 % input bounds
 ocp_model.set('constr_Jbu', Jbu);
 ocp_model.set('constr_lbu', lbu);
@@ -267,6 +271,7 @@ ocp_model.set('constr_lh_e', lh_e);
 ocp_model.set('constr_uh_e', uh_e);
 % soft nonlinear constraints
 ocp_model.set('constr_Jsbx', Jsbx);
+ocp_model.set('constr_Jsbx_e', Jsbx);
 ocp_model.set('constr_Jsh', Jsh);
 ocp_model.set('constr_Jsh_e', Jsh_e);
 
@@ -281,7 +286,6 @@ ocp_model.model_struct
 ocp_opts = acados_ocp_opts();
 ocp_opts.set('compile_interface', compile_interface);
 ocp_opts.set('codgen_model', codgen_model);
-ocp_opts.set('param_scheme', ocp_param_scheme);
 ocp_opts.set('param_scheme_N', ocp_N);
 ocp_opts.set('nlp_solver', ocp_nlp_solver);
 ocp_opts.set('nlp_solver_exact_hessian', ocp_nlp_solver_exact_hessian);
@@ -415,6 +419,8 @@ for ii=1:n_sim
     u = ocp.get('u');
     pi = ocp.get('pi');
 
+%ocp.print('stat');
+%return
     % store first input
     u_sim(:,ii) = ocp.get('u', 0);
 

@@ -34,9 +34,6 @@
 
 # COVERAGE="${COVERAGE:-}";
 
-TERA_RENDERER_VERSION='0.0.34';
-_TERA_RENDERER_GITHUB_RELEASES="https://github.com/acados/tera_renderer/releases/download/v${TERA_RENDERER_VERSION}/";
-TERA_RENDERER_URL="${_TERA_RENDERER_GITHUB_RELEASES}/t_renderer-v${TERA_RENDERER_VERSION}-linux";
 
 export MATLABPATH="${ACADOS_INSTALL_DIR}/lib:${MATLABPATH}";
 
@@ -72,13 +69,18 @@ function build_acados {
 		-D ACADOS_OCTAVE_TEMPLATE="${ACADOS_OCTAVE_TEMPLATE}" \
 		-D ACADOS_PYTHON="${ACADOS_PYTHON}" \
 		..;
+	[ $? -ne 0 ] && exit 110;
+	
 	if [ "${ACADOS_LINT}" = 'ON' ]; then
 		cmake --build build --target lint;
 		[ $? -ne 0 ] && exit 110;
 	fi
 
 	cmake --build build;
+	[ $? -ne 0 ] && exit 110;
+
 	cmake --build build --target install;
+	[ $? -ne 0 ] && exit 110;
 
     if [[ "${ACADOS_PYTHON}" = 'ON' || "${ACADOS_OCTAVE_TEMPLATE}" = 'ON' ]] ;
     then
@@ -86,11 +88,7 @@ function build_acados {
         pushd interfaces/acados_template;
             pip install .
         popd;
-		mkdir -p bin;
-        pushd bin;
-            wget -O t_renderer "${TERA_RENDERER_URL}";
-            chmod +x t_renderer
-        popd;
+        source "${SCRIPT_DIR}/install_t_renderer.sh";
     fi
 
 	# Run ctest

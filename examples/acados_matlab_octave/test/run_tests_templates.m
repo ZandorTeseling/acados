@@ -31,6 +31,8 @@
 % POSSIBILITY OF SUCH DAMAGE.;
 %
 
+addpath(pwd)
+
 %% check that environment variables are provided
 try
     check_casadi_availibility();
@@ -49,8 +51,12 @@ end
 
 %% ocp tests
 try
-    test_template_pendulum_ocp;
+    test_template_pendulum_ocp('auto');
+    test_template_pendulum_ocp('nonlinear_ls');
+    test_template_pendulum_ocp('ext_cost');
+    test_template_pendulum_exact_hess;
     test_template_ocp_linear_dae;
+    test_template_disc_dyn_ocp_linear;
 catch exception
     exit_with_error(exception);
 end
