@@ -92,12 +92,9 @@ ny = 4; % number of outputs in lagrange term
 ny_e = 2; % number of outputs in mayer term
 nbx = 3;
 nbu = nu;
-ng = 0;
-ng_e = 0;
 nh = 1;
 nh_e = 1;
 ns = 2;
-%ns = 1;
 ns_e = 2;
 %ns_e = 1;
 nsbx = 1;
@@ -185,32 +182,11 @@ Jsh(1, 1) = 1.0;
 Jsh_e = zeros(nh_e, nsh_e);
 Jsh_e(1, 1) = 1.0;
 
-% shift
-x_end = zeros(nx, 1);
-u_end = zeros(nu, 1);
-
-
 
 %% acados ocp model
 ocp_model = acados_ocp_model();
-%% dims
 ocp_model.set('T', T);
-ocp_model.set('dim_nx', nx);
-ocp_model.set('dim_nu', nu);
-ocp_model.set('dim_ny', ny);
-ocp_model.set('dim_ny_e', ny_e);
-ocp_model.set('dim_nbx', nbx);
-ocp_model.set('dim_nbx_e', nbx);
-ocp_model.set('dim_nbu', nbu);
-ocp_model.set('dim_nh', nh);
-ocp_model.set('dim_nh_e', nh_e);
-ocp_model.set('dim_ns', ns);
-ocp_model.set('dim_ns_e', ns_e);
-ocp_model.set('dim_nsbx', nsbx);
-ocp_model.set('dim_nsbx_e', nsbx);
-ocp_model.set('dim_nsh', nsh);
-ocp_model.set('dim_nsh_e', nsh_e);
-ocp_model.set('dim_np', np);
+
 %% symbolics
 ocp_model.set('sym_x', model.sym_x);
 ocp_model.set('sym_u', model.sym_u);
@@ -317,10 +293,6 @@ ocp = acados_ocp(ocp_model, ocp_opts);
 
 %% acados sim model
 sim_model = acados_sim_model();
-% dims
-sim_model.set('dim_nx', nx);
-sim_model.set('dim_nu', nu);
-sim_model.set('dim_np', np);
 % symbolics
 sim_model.set('sym_x', model.sym_x);
 if isfield(model, 'sym_u')

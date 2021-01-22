@@ -33,31 +33,38 @@
 
 import os
 from casadi import *
-from .utils import ALLOWED_CASADI_VERSIONS, casadi_length
+from .utils import ALLOWED_CASADI_VERSIONS, casadi_length, casadi_version_warning
 
-def generate_c_code_nls_cost( model, cost_name, is_terminal ):
+def generate_c_code_nls_cost( model, cost_name, stage_type ):
 
     casadi_version = CasadiMeta.version()
     casadi_opts = dict(mex=False, casadi_int='int', casadi_real='double')
 
     if casadi_version not in (ALLOWED_CASADI_VERSIONS):
-        msg =  'Please download and install CasADi {} '.format(" or ".join(ALLOWED_CASADI_VERSIONS))
-        msg += 'to ensure compatibility with acados.\n'
-        msg += 'Version {} currently in use.'.format(casadi_version)
-        raise Exception(msg)
-
-    if is_terminal:
-        middle_name = '_cost_y_e'
-        u = SX.sym('u', 0, 0)
-        cost_expr = model.cost_y_expr_e
-
-    else:
-        middle_name = '_cost_y'
-        u = model.u
-        cost_expr = model.cost_y_expr
+        casadi_version_warning(casadi_version)
 
     x = model.x
     p = model.p
+
+    if isinstance(x, casadi.MX):
+        symbol = MX.sym
+    else:
+        symbol = SX.sym
+
+    if stage_type == 'terminal':
+        middle_name = '_cost_y_e'
+        u = symbol('u', 0, 0)
+        cost_expr = model.cost_y_expr_e
+
+    elif stage_type == 'initial':
+        middle_name = '_cost_y_0'
+        u = model.u
+        cost_expr = model.cost_y_expr_0
+
+    elif stage_type == 'path':
+        middle_name = '_cost_y'
+        u = model.u
+        cost_expr = model.cost_y_expr
 
     # set up directory
     if not os.path.exists('c_generated_code'):
@@ -75,10 +82,7 @@ def generate_c_code_nls_cost( model, cost_name, is_terminal ):
 
     ny = casadi_length(cost_expr)
 
-    if isinstance(cost_expr, casadi.SX):
-        y = SX.sym('y', ny, 1)
-    else:
-        y = MX.sym('y', ny, 1)
+    y = symbol('y', ny, 1)
 
     y_adj = jtimes(cost_expr, vertcat(u, x), y, True)
     y_hess = jacobian(y_adj, vertcat(u, x))

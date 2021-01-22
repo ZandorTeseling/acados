@@ -98,6 +98,7 @@ typedef struct
 	// public members for interfaces
     void (*get_nparam)(void *, int *);
     void (*set_param)(void *, double *);
+    void (*set_param_sparse)(void *, int n_update, int *idx, double *);
     // private members
     void *ptr_ext_mem;  // pointer to external memory
     int (*fun)(void **, void **, void *);
@@ -187,6 +188,7 @@ typedef struct
 	// public members for interfaces
     void (*get_nparam)(void *, int *);
     void (*set_param)(void *, double *);
+    void (*set_param_sparse)(void *, int n_update, int *idx, double *);
     // private members
     void *ptr_ext_mem;  // pointer to external memory
     int (*casadi_fun)(const double **, double **, int *, double *, void *);
@@ -198,7 +200,6 @@ typedef struct
     double **args;
     double **res;
     double *w;
-    double *p;  // parameters
     int *iw;
     int *args_size;     // size of args[i]
     int *res_size;      // size of res[i]
@@ -236,8 +237,6 @@ void external_function_param_casadi_wrapper(void *self, ext_fun_arg_t *type_in, 
                                             ext_fun_arg_t *type_out, void **out);
 //
 void external_function_param_casadi_get_nparam(void *self, int *np);
-//
-void external_function_param_casadi_set_param(void *self, double *p);
 
 #ifdef __cplusplus
 } /* extern "C" */

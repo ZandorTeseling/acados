@@ -1103,6 +1103,10 @@ void ocp_nlp_opts_initialize_default(void *config_, void *dims_, void *opts_)
         constraints[ii]->opts_initialize_default(constraints[ii], dims->constraints[ii], opts->constraints[ii]);
     }
 
+    // globalization
+    opts->alpha_min = 0.05;
+    opts->alpha_reduction = 0.7;
+
     return;
 }
 
@@ -1192,6 +1196,16 @@ void ocp_nlp_opts_set(void *config_, void *opts_, const char *field, void* value
         {
             double* step_length = (double *) value;
             opts->step_length = *step_length;
+        }
+        else if (!strcmp(field, "alpha_reduction"))
+        {
+            double* alpha_reduction = (double *) value;
+            opts->alpha_reduction = *alpha_reduction;
+        }
+        else if (!strcmp(field, "alpha_min"))
+        {
+            double* alpha_min = (double *) value;
+            opts->alpha_min = *alpha_min;
         }
         else if (!strcmp(field, "globalization"))
         {
@@ -2200,7 +2214,7 @@ double ocp_nlp_evaluate_merit_fun(ocp_nlp_config *config, ocp_nlp_dims *dims,
 
 
 
-static double ocp_nlp_line_search(ocp_nlp_config *config, ocp_nlp_dims *dims, ocp_nlp_in *in,
+double ocp_nlp_line_search(ocp_nlp_config *config, ocp_nlp_dims *dims, ocp_nlp_in *in,
             ocp_nlp_out *out, ocp_nlp_opts *opts, ocp_nlp_memory *mem, ocp_nlp_workspace *work)
 {
     int i;
@@ -2364,14 +2378,14 @@ static double ocp_nlp_line_search(ocp_nlp_config *config, ocp_nlp_dims *dims, oc
         {
             double merit_fun0 = ocp_nlp_evaluate_merit_fun(config, dims, in, out, opts, mem, work);
 
-            double alpha_min = 0.1;
-            // TODO(oj): add alpha_min and alpha_reduction factor [0.7] to options.
+            double alpha_min = opts->alpha_min;
+            double reduction_factor = opts->alpha_reduction;
 
             /* actual Line Search*/
             alpha = 1.0;
             // TODO: check out more advanced step search Leineweber1995
 
-            for (j=0; alpha>alpha_min; j++)
+            for (j=0; alpha*reduction_factor > alpha_min; j++)
             {
 
                 for (i = 0; i <= N; i++)
@@ -2379,15 +2393,15 @@ static double ocp_nlp_line_search(ocp_nlp_config *config, ocp_nlp_dims *dims, oc
 
                 // printf("\ntmp merit fun value step search iter: %d", j);
                 double merit_fun1 = ocp_nlp_evaluate_merit_fun(config, dims, in, out, opts, mem, work);
-                // TODO(oj): also check Armijo-type condition Leinweber1999 (2.35)
 
+                // TODO(oj): also check Armijo-type condition Leinweber1999 (2.35)
                 if (merit_fun1 < merit_fun0)
                 {
                     break;
                 }
                 else
                 {
-                    alpha *= 0.7;
+                    alpha *= reduction_factor;
                 }
             }
         }
@@ -2399,7 +2413,7 @@ static double ocp_nlp_line_search(ocp_nlp_config *config, ocp_nlp_dims *dims, oc
 
 
 void ocp_nlp_update_variables_sqp(ocp_nlp_config *config, ocp_nlp_dims *dims, ocp_nlp_in *in,
-            ocp_nlp_out *out, ocp_nlp_opts *opts, ocp_nlp_memory *mem, ocp_nlp_workspace *work)
+            ocp_nlp_out *out, ocp_nlp_opts *opts, ocp_nlp_memory *mem, ocp_nlp_workspace *work, double alpha)
 {
     int i;
 
@@ -2409,9 +2423,6 @@ void ocp_nlp_update_variables_sqp(ocp_nlp_config *config, ocp_nlp_dims *dims, oc
     int *nu = dims->nu;
     int *ni = dims->ni;
     int *nz = dims->nz;
-
-    // step length
-    double alpha = ocp_nlp_line_search(config, dims, in, out, opts, mem, work);
 
 
 #if defined(ACADOS_WITH_OPENMP)

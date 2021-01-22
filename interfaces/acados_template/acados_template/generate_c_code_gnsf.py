@@ -33,17 +33,14 @@
 
 import os
 from casadi import *
-from .utils import ALLOWED_CASADI_VERSIONS, is_empty
+from .utils import ALLOWED_CASADI_VERSIONS, is_empty, casadi_version_warning
 
 def generate_c_code_gnsf( model ):
 
     casadi_version = CasadiMeta.version()
     casadi_opts = dict(mex=False, casadi_int='int', casadi_real='double')
     if casadi_version not in (ALLOWED_CASADI_VERSIONS):
-        msg =  'Please download and install CasADi {} '.format(" or ".join(ALLOWED_CASADI_VERSIONS))
-        msg += 'to ensure compatibility with acados.\n'
-        msg += 'Version {} currently in use.'.format(casadi_version)
-        raise Exception(msg)
+        casadi_version_warning(casadi_version)
 
     model_name = model.name
 
@@ -74,25 +71,20 @@ def generate_c_code_gnsf( model ):
     # the DAE can be exported as SX -> detect GNSF in Matlab
     # -> evaluated SX GNSF functions with MX.
     u = model.u
-    if isinstance(u, MX):
-        y = MX.sym("y", gnsf_ny, 1)
-        uhat = MX.sym("uhat", gnsf_nuhat, 1)
-        p = model.p
-        x1 = MX.sym("gnsf_x1", gnsf_nx1, 1)
-        x1dot = MX.sym("gnsf_x1dot", gnsf_nx1, 1)
-        z1 = MX.sym("gnsf_z1", gnsf_nz1, 1)
-        dummy = MX.sym("gnsf_dummy", 1, 1)
-        empty_var = MX.sym("gnsf_empty_var", 0, 0)
 
+    if isinstance(u, casadi.MX):
+        symbol = MX.sym
     else:
-        y = SX.sym("y", gnsf_ny, 1)
-        uhat = SX.sym("uhat", gnsf_nuhat, 1)
-        p = model.p
-        x1 = SX.sym("gnsf_x1", gnsf_nx1, 1)
-        x1dot = SX.sym("gnsf_x1dot", gnsf_nx1, 1)
-        z1 = SX.sym("gnsf_z1", gnsf_nz1, 1)
-        dummy = SX.sym("gnsf_dummy", 1, 1)
-        empty_var = SX.sym("gnsf_empty_var", 0, 0)
+        symbol = SX.sym
+
+    y = symbol("y", gnsf_ny, 1)
+    uhat = symbol("uhat", gnsf_nuhat, 1)
+    p = model.p
+    x1 = symbol("gnsf_x1", gnsf_nx1, 1)
+    x1dot = symbol("gnsf_x1dot", gnsf_nx1, 1)
+    z1 = symbol("gnsf_z1", gnsf_nz1, 1)
+    dummy = symbol("gnsf_dummy", 1, 1)
+    empty_var = symbol("gnsf_empty_var", 0, 0)
 
     ## generate C code
     fun_name = model_name + '_gnsf_phi_fun'

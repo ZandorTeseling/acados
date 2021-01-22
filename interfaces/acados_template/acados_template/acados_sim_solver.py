@@ -154,13 +154,11 @@ def sim_generate_casadi_functions(acados_sim):
 
     integrator_type = acados_sim.solver_options.integrator_type
 
-    opts = dict(generate_hess=0)
+    opts = dict(generate_hess = acados_sim.solver_options.sens_hess)
     # generate external functions
     if integrator_type == 'ERK':
-        # explicit model -- generate C code
         generate_c_code_explicit_ode(model, opts)
     elif integrator_type == 'IRK':
-        # implicit model -- generate C code
         generate_c_code_implicit_ode(model, opts)
     elif integrator_type == 'GNSF':
         generate_c_code_gnsf(model)
@@ -232,15 +230,18 @@ class AcadosSimSolver:
 
         nu = self.sim_struct.dims.nu
         nx = self.sim_struct.dims.nx
+        nz = self.sim_struct.dims.nz
         self.gettable = {
             'x': nx,
             'xn': nx,
             'u': nu,
+            'z': nz,
             'S_forw': nx*(nx+nu),
             'Sx': nx*nx,
             'Su': nx*nu,
             'S_adj': nx+nu,
             'S_hess': (nx+nu)*(nx+nu),
+            'S_algebraic': (nz)*(nx+nu),
         }
 
         self.settable = ['S_adj', 'T', 'x', 'u', 'xdot', 'z', 'p'] # S_forw
@@ -258,7 +259,7 @@ class AcadosSimSolver:
     def get(self, field_):
         """
         get the last solution of the solver:
-            :param field_: string in ['x', 'u', 'S_forw', 'Sx', 'Su', 'S_adj', 'S_hess']
+            :param field_: string in ['x', 'u', 'z', 'S_forw', 'Sx', 'Su', 'S_adj', 'S_hess', 'S_algebraic']
         """
         field = field_
         field = field.encode('utf-8')
@@ -288,6 +289,11 @@ class AcadosSimSolver:
                 nx = self.sim_struct.dims.nx
                 nu = self.sim_struct.dims.nu
                 out = out.reshape(nx+nu, nx+nu, order='F')
+            elif field_ == 'S_algebraic':
+                nx = self.sim_struct.dims.nx
+                nu = self.sim_struct.dims.nu
+                nz = self.sim_struct.dims.nz
+                out = out.reshape(nz, nx+nu, order='F')
         else:
             raise Exception(f'AcadosSimSolver.get(): Unknown field {field_},' \
                 f' available fields are {", ".join(self.gettable.keys())}')
@@ -319,6 +325,7 @@ class AcadosSimSolver:
             getattr(self.shared_lib, f"{model_name}_acados_sim_update_params")(value_data, value_.shape[0])
 
         elif field_ in self.settable:
+            # TODO(oj): perform dimension check!
             self.shared_lib.sim_in_set.argtypes = [c_void_p, c_void_p, c_void_p, c_char_p, c_void_p]
             self.shared_lib.sim_in_set(self.sim_config, self.sim_dims, self.sim_in, field, value_data_p)
         else:
@@ -330,3 +337,8 @@ class AcadosSimSolver:
 
     def __del__(self):
         getattr(self.shared_lib, f"{self.model_name}_acados_sim_free")()
+
+        try:
+            self.dlclose(self.shared_lib._handle)
+        except:
+            pass

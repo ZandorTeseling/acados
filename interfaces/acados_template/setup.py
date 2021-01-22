@@ -41,7 +41,7 @@ if sys.version_info < (3,5):
 
 setup(name='acados_template',
    version='0.1',
-   python_requires='>=3.5, <3.9',
+   python_requires='>=3.5', # < 3.9
    description='A templating framework for acados',
    url='http://github.com/zanellia/acados',
    author='Andrea Zanelli',
@@ -57,7 +57,7 @@ setup(name='acados_template',
    install_requires=[
       'numpy',
       'scipy',
-      'casadi==3.5.1',
+      'casadi>=3.5.1',
       'matplotlib',
       'future-fstrings'
    ],
@@ -79,8 +79,10 @@ setup(name='acados_template',
        'c_templates_tera/make_sfun.in.m',
        'c_templates_tera/cost_y_fun.in.h',
        'c_templates_tera/cost_y_e_fun.in.h',
+       'c_templates_tera/cost_y_0_fun.in.h',
        'c_templates_tera/external_cost.in.h',
        'c_templates_tera/external_cost_e.in.h',
+       'c_templates_tera/external_cost_0.in.h',
        'acados_layout.json',
        'acados_sim_layout.json',
        ]},
