@@ -33,17 +33,14 @@
 
 import os
 from casadi import *
-from .utils import ALLOWED_CASADI_VERSIONS, is_empty
+from .utils import ALLOWED_CASADI_VERSIONS, is_empty, casadi_version_warning
 
 def generate_c_code_explicit_ode( model, opts ):
 
     casadi_version = CasadiMeta.version()
     casadi_opts = dict(mex=False, casadi_int='int', casadi_real='double')
     if casadi_version not in (ALLOWED_CASADI_VERSIONS):
-        msg =  'Please download and install CasADi {} '.format(" or ".join(ALLOWED_CASADI_VERSIONS))
-        msg += 'to ensure compatibility with acados.\n'
-        msg += 'Version {} currently in use.'.format(casadi_version)
-        raise Exception(msg)
+        casadi_version_warning(casadi_version)
 
 
     generate_hess = opts["generate_hess"]
@@ -59,50 +56,36 @@ def generate_c_code_explicit_ode( model, opts ):
     nx = x.size()[0]
     nu = u.size()[0]
 
-    ## set up functions to be exported
-    if isinstance(f_expl, casadi.SX):
-        Sx = SX.sym('Sx', nx, nx)
-        Sp = SX.sym('Sp', nx, nu)
-        lambdaX = SX.sym('lambdaX', nx, 1)
-    elif isinstance(f_expl, casadi.MX):
-        Sx = MX.sym('Sx', nx, nx)
-        Sp = MX.sym('Sp', nx, nu)
-        lambdaX = MX.sym('lambdaX', nx, 1)
+    if isinstance(f_expl, casadi.MX):
+        symbol = MX.sym
+    elif isinstance(f_expl, casadi.SX):
+        symbol = SX.sym
     else:
         raise Exception("Invalid type for f_expl! Possible types are 'SX' and 'MX'. Exiting.")
+    ## set up functions to be exported
+    Sx = symbol('Sx', nx, nx)
+    Sp = symbol('Sp', nx, nu)
+    lambdaX = symbol('lambdaX', nx, 1)
 
     fun_name = model_name + '_expl_ode_fun'
 
     ## Set up functions
     expl_ode_fun = Function(fun_name, [x, u, p], [f_expl])
 
-    # TODO: Polish: get rid of SX.zeros
-    if isinstance(f_expl, casadi.SX):
-        vdeX = SX.zeros(nx,nx)
-    else:
-        vdeX = MX.zeros(nx,nx)
-
-    vdeX = vdeX + jtimes(f_expl,x,Sx)
-
-    if isinstance(f_expl, casadi.SX):
-        vdeP = SX.zeros(nx,nu) + jacobian(f_expl,u)
-    else:
-        vdeP = MX.zeros(nx,nu) + jacobian(f_expl,u)
-
-    vdeP = vdeP + jtimes(f_expl,x,Sp)
+    vdeX = jtimes(f_expl,x,Sx)
+    vdeP = jacobian(f_expl,u) + jtimes(f_expl,x,Sp)
 
     fun_name = model_name + '_expl_vde_forw'
 
-    expl_vde_forw = Function(fun_name, [x, Sx, Sp, u, p], [f_expl,vdeX,vdeP])
+    expl_vde_forw = Function(fun_name, [x, Sx, Sp, u, p], [f_expl, vdeX, vdeP])
 
     adj = jtimes(f_expl, vertcat(x, u), lambdaX, True)
 
     fun_name = model_name + '_expl_vde_adj'
     expl_vde_adj = Function(fun_name, [x, lambdaX, u, p], [adj])
 
-    S_forw = vertcat(horzcat(Sx, Sp), horzcat(DM.zeros(nu,nx), DM.eye(nu)))
-
     if generate_hess:
+        S_forw = vertcat(horzcat(Sx, Sp), horzcat(DM.zeros(nu,nx), DM.eye(nu)))
         hess = mtimes(transpose(S_forw),jtimes(adj, vertcat(x,u), S_forw))
         hess2 = []
         for j in range(nx+nu):

@@ -89,14 +89,14 @@ if is_octave()
     fclose(input_file);
 
     % add temporary additional flag
-    if (strcmp(opts.qp_solver, 'full_condensing_qpoases'))
+    if ~isempty(strfind(opts.qp_solver,'qpoases'))
         cflags_tmp = [cflags_tmp, ' -DACADOS_WITH_QPOASES'];
-    end
-    if (strcmp(opts.qp_solver, 'partial_condensing_osqp'))
+    elseif ~isempty(strfind(opts.qp_solver,'osqp'))
         cflags_tmp = [cflags_tmp, ' -DACADOS_WITH_OSQP'];
-    end
-    if (strcmp(opts.qp_solver, 'partial_condensing_hpmpc'))
+    elseif ~isempty(strfind(opts.qp_solver,'hpmpc'))
         cflags_tmp = [cflags_tmp, ' -DACADOS_WITH_HPMPC'];
+    elseif ~isempty(strfind(opts.qp_solver,'qpdunes'))
+        cflags_tmp = [cflags_tmp, ' -DACADOS_WITH_QPDUNES'];
     end
 
     setenv('CFLAGS', cflags_tmp);
@@ -106,10 +106,17 @@ end
 
 if ismac()
     FLAGS = 'CFLAGS=$CFLAGS -std=c99';
+    LDFLAGS = 'LDFLAGS=$LDFLAGS';
 else
     FLAGS = 'CFLAGS=$CFLAGS -std=c99 -fopenmp';
+    LDFLAGS = 'LDFLAGS=$LDFLAGS -fopenmp';
 end
 
+% remove flag file, if present, before creating a new one
+flag_files = dir(fullfile(opts.output_dir,'_compiled*'));
+if ~isempty(flag_files)
+    delete(fullfile(opts.output_dir,flag_files(1).name));
+end
 % is qpOASES?
 with_qp_qpoases = ~isempty(strfind(opts.qp_solver, 'qpoases'));
 if with_qp_qpoases
@@ -117,6 +124,8 @@ if with_qp_qpoases
     flag_file = fullfile(opts.output_dir, '_compiled_with_qpoases.txt');
     flagID = fopen(flag_file, 'w');
     fclose(flagID);
+    % additional compilation flag
+    FLAGS = [FLAGS, ' -DACADOS_WITH_QPOASES'];
 end
 % is OSQP?
 with_qp_osqp = ~isempty(strfind(opts.qp_solver, 'osqp'));
@@ -125,14 +134,26 @@ if with_qp_osqp
     flag_file = fullfile(opts.output_dir, '_compiled_with_osqp.txt');
     flagID = fopen(flag_file, 'w');
     fclose(flagID);
+    % additional compilation flag
+    FLAGS = [FLAGS, ' -DACADOS_WITH_OSQP'];
+end
+% is qpDUNES?
+with_qp_qpdunes = ~isempty(strfind(opts.qp_solver, 'qpdunes'));
+if with_qp_qpdunes
+    % flag file to remember if compiled with qpDUNES
+    flag_file = fullfile(opts.output_dir, '_compiled_with_qpdunes.txt');
+    flagID = fopen(flag_file, 'w');
+    fclose(flagID);
 end
 % is HPMPC?
 with_qp_hpmpc = ~isempty(strfind(opts.qp_solver, 'hpmpc'));
 if with_qp_hpmpc
-    % flag file to remember if compiled with OSQP
+    % flag file to remember if compiled with HPMPC
     flag_file = fullfile(opts.output_dir, '_compiled_with_hpmpc.txt');
     flagID = fopen(flag_file, 'w');
     fclose(flagID);
+    % additional compilation flag
+    FLAGS = [FLAGS, ' -DACADOS_WITH_HPMPC'];
 end
 
 
@@ -155,20 +176,17 @@ for ii=1:length(mex_files)
         end
     else
         if with_qp_qpoases
-            FLAGS = [FLAGS, ' -DACADOS_WITH_QPOASES'];
-            mex(mex_flags, FLAGS, acados_include, acados_interfaces_include, external_include, blasfeo_include, hpipm_include,...
-                acados_lib_path, '-lacados', '-lhpipm', '-lblasfeo', '-lqpOASES_e', mex_files{ii})
+            mex(mex_flags, FLAGS, LDFLAGS, acados_include, acados_interfaces_include, external_include, blasfeo_include, hpipm_include,...
+                acados_lib_path, '-lacados', '-lhpipm', '-lblasfeo', '-lqpOASES_e', mex_files{ii}, '-outdir', opts.output_dir)
         elseif with_qp_hpmpc
-            FLAGS = [FLAGS, ' -DACADOS_WITH_OSQP'];
-            mex(mex_flags, FLAGS, acados_include, acados_interfaces_include, external_include, blasfeo_include, hpipm_include,...
-                acados_lib_path, '-lacados', '-lhpipm', '-lblasfeo', '-lhpmpc', mex_files{ii})
+            mex(mex_flags, FLAGS, LDFLAGS, acados_include, acados_interfaces_include, external_include, blasfeo_include, hpipm_include,...
+                acados_lib_path, '-lacados', '-lhpipm', '-lblasfeo', '-lhpmpc', mex_files{ii}, '-outdir', opts.output_dir)
         elseif with_qp_osqp
-            FLAGS = [FLAGS, ' -DACADOS_WITH_OSQP'];
-            mex(mex_flags, FLAGS, acados_include, acados_interfaces_include, external_include, blasfeo_include, hpipm_include,...
-                acados_lib_path, '-lacados', '-lhpipm', '-lblasfeo', '-losqp', mex_files{ii})
+            mex(mex_flags, FLAGS, LDFLAGS, acados_include, acados_interfaces_include, external_include, blasfeo_include, hpipm_include,...
+                acados_lib_path, '-lacados', '-lhpipm', '-lblasfeo', '-losqp', mex_files{ii}, '-outdir', opts.output_dir)
         else
-            mex(mex_flags, FLAGS, acados_include, acados_interfaces_include, external_include, blasfeo_include, hpipm_include,...
-                acados_lib_path, '-lacados', '-lhpipm', '-lblasfeo', mex_files{ii})
+            mex(mex_flags, FLAGS, LDFLAGS, acados_include, acados_interfaces_include, external_include, blasfeo_include, hpipm_include,...
+                acados_lib_path, '-lacados', '-lhpipm', '-lblasfeo', mex_files{ii}, '-outdir', opts.output_dir)
         end
     end
 end
@@ -178,13 +196,14 @@ if is_octave()
     if octave_version < 5
         movefile('*.o', opts.output_dir);
     end
+
+    %system(['mv -f *.mexa64 ', opts.output_dir])
+    for k=1:length(mex_names)
+        clear(mex_names{k})
+    %    movefile([mex_names{k}, '.', mexext], opts.output_dir);
+        [status, message] = copyfile([mex_names{k}, '.', mexext], opts.output_dir);
+        delete([mex_names{k}, '.', mexext]);
+    end
 end
 
-%system(['mv -f *.mexa64 ', opts.output_dir])
-for k=1:length(mex_names)
-    clear(mex_names{k})
-%    movefile([mex_names{k}, '.', mexext], opts.output_dir);
-    [status, message] = copyfile([mex_names{k}, '.', mexext], opts.output_dir);
-    delete([mex_names{k}, '.', mexext]);
-end
 

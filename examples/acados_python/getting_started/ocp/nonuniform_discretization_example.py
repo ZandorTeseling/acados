@@ -35,7 +35,7 @@ import sys, json, os
 sys.path.insert(0, '../common')
 
 from acados_template import AcadosOcp, AcadosOcpSolver, acados_dae_model_json_dump
-from export_pendulum_ode_model import export_pendulum_ode_model
+from pendulum_model import export_pendulum_ode_model
 import numpy as np
 import scipy.linalg
 from utils import plot_pendulum
@@ -128,8 +128,13 @@ ocp_solver = AcadosOcpSolver(ocp, json_file = 'acados_ocp.json')
 simX = np.ndarray((N+1, nx))
 simU = np.ndarray((N, nu))
 
+# change options after creating ocp_solver
 ocp_solver.options_set("step_length", 0.99999)
 ocp_solver.options_set("globalization", "fixed_step") # fixed_step, merit_backtracking
+ocp_solver.options_set("tol_eq", 1e-2)
+ocp_solver.options_set("tol_stat", 1e-2)
+ocp_solver.options_set("tol_ineq", 1e-2)
+ocp_solver.options_set("tol_comp", 1e-2)
 
 # initialize solver
 for i in range(N):

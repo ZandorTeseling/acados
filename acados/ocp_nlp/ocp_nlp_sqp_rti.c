@@ -685,8 +685,7 @@ void ocp_nlp_sqp_rti_preparation_step(void *config_, void *dims_,
 #endif
 
     // initialize QP
-    ocp_nlp_initialize_qp(config, dims, nlp_in, nlp_out,
-        nlp_opts, nlp_mem, nlp_work);
+    ocp_nlp_initialize_qp(config, dims, nlp_in, nlp_out, nlp_opts, nlp_mem, nlp_work);
 
     /* SQP body */
     int sqp_iter = 0;
@@ -735,6 +734,7 @@ void ocp_nlp_sqp_rti_feedback_step(void *config_, void *dims_,
     mem->time_qp_sol = 0.0;
     mem->time_qp_solver_call = 0.0;
     mem->time_qp_xcond = 0.0;
+    mem->time_glob = 0.0;
 
     // embed initial value (this actually updates all bounds at stage 0...)
     ocp_nlp_embed_initial_value(config, dims, nlp_in,
@@ -811,13 +811,21 @@ void ocp_nlp_sqp_rti_feedback_step(void *config_, void *dims_,
     if ((qp_status!=ACADOS_SUCCESS) & (qp_status!=ACADOS_MAXITER))
     {
         //   print_ocp_qp_in(mem->qp_in);
-
+#ifndef ACADOS_SILENT
         printf("QP solver returned error status %d\n", qp_status);
+#endif
         mem->status = ACADOS_QP_FAILURE;
         return;
     }
 
-    ocp_nlp_update_variables_sqp(config, dims, nlp_in, nlp_out, nlp_opts, nlp_mem, nlp_work);
+
+    // globalization
+    acados_tic(&timer1);
+    double alpha = ocp_nlp_line_search(config, dims, nlp_in, nlp_out, nlp_opts, nlp_mem, nlp_work);
+    mem->time_glob += acados_toc(&timer1);
+
+    // update variables
+    ocp_nlp_update_variables_sqp(config, dims, nlp_in, nlp_out, nlp_opts, nlp_mem, nlp_work, alpha);
 
     // ocp_nlp_dims_print(nlp_out->dims);
     // ocp_nlp_out_print(nlp_out);
@@ -1011,6 +1019,11 @@ void ocp_nlp_sqp_rti_get(void *config_, void *dims_, void *mem_,
     {
         double *value = return_value_;
         *value = mem->time_reg;
+    }
+    else if (!strcmp("time_glob", field))
+    {
+        double *value = return_value_;
+        *value = mem->time_glob;
     }
     else if (!strcmp("time_sim", field) || !strcmp("time_sim_ad", field) || !strcmp("time_sim_la", field))
     {

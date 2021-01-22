@@ -31,64 +31,27 @@
 % POSSIBILITY OF SUCH DAMAGE.;
 %
 
-function check = sim_check_dims(model)
+addpath(pwd)
 
-check = 1;
-
-if isfield(model, 'sym_x')
-    if all(size(model.sym_x))
-        nx = length(model.sym_x);
+%% check that environment variables are provided
+try
+    check_casadi_availibility();
+    require_env_variable('LD_LIBRARY_PATH');
+    require_env_variable('ACADOS_INSTALL_DIR');
+    if is_octave()
+        require_env_variable('OCTAVE_PATH');
     else
-        nx = 0;
+        require_env_variable('MATLABPATH');
     end
-    if nx ~= model.dim_nx
-        check = 0;
-        fail = 'x';
-    end
-end
-
-if isfield(model, 'sym_u')
-    if all(size(model.sym_u))
-        nu = length(model.sym_u);
-    else
-        nu = 0;
-    end
-    if nu ~= model.dim_nu
-        check = 0;
-        fail = 'u';
-    end
+catch exception
+    exit_with_error(exception);
 end
 
 
-if isfield(model, 'sym_p')
-    if all(size(model.sym_p))
-        np = length(model.sym_p);
-    else
-        np = 0;
-    end
-    if np ~= model.dim_np
-        check = 0;
-        fail = 'p';
-    end
-end
 
-
-if isfield(model, 'sym_z')
-    if all(size(model.sym_z))
-        nz = length(model.sym_z);
-    else
-        nz = 0;
-    end
-    if nz ~= model.dim_nz
-        check = 0;
-        fail = 'z';
-    end
-end
-
-
-if check == 0
-    message = strcat('\nSIM_DIM_CHECK FAIL: check consistency of dim_',...
-        fail, ' with CasADi symbolic sym_', fail, '!\n\n');
-    fprintf(message);
-    error(message);
+%% ocp tests
+try
+    test_template_pendulum_ocp('ext_cost');
+catch exception
+    exit_with_error(exception);
 end

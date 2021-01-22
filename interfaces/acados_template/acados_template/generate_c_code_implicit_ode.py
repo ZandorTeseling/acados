@@ -33,17 +33,14 @@
 
 import os
 from casadi import *
-from .utils import ALLOWED_CASADI_VERSIONS, is_empty, casadi_length
+from .utils import ALLOWED_CASADI_VERSIONS, is_empty, casadi_length, casadi_version_warning
 
 def generate_c_code_implicit_ode( model, opts ):
 
     casadi_version = CasadiMeta.version()
     casadi_opts = dict(mex=False, casadi_int='int', casadi_real='double')
     if casadi_version not in (ALLOWED_CASADI_VERSIONS):
-        msg =  'Please download and install CasADi {} '.format(" or ".join(ALLOWED_CASADI_VERSIONS))
-        msg += 'to ensure compatibility with acados.\n'
-        msg += 'Version {} currently in use.'.format(casadi_version)
-        raise Exception(msg)
+        casadi_version_warning(casadi_version)
 
     generate_hess = opts["generate_hess"]
 
@@ -70,10 +67,12 @@ def generate_c_code_implicit_ode( model, opts ):
     ## generate hessian
     x_xdot_z_u = vertcat(x, xdot, z, u)
 
-    if isinstance(x, casadi.SX):
-        multiplier  = SX.sym('multiplier', nx + nz)
-    elif isinstance(x, casadi.MX):
-        multiplier  = MX.sym('multiplier', nx + nz)
+    if isinstance(x, casadi.MX):
+        symbol = MX.sym
+    else:
+        symbol = SX.sym
+
+    multiplier  = symbol('multiplier', nx + nz)
 
     ADJ = jtimes(f_impl, x_xdot_z_u, multiplier, True)
     HESS = jacobian(ADJ, x_xdot_z_u)

@@ -35,7 +35,7 @@
 %
 
 %% Example of the frc_racecars in simulation without obstacle avoidance:
-%% This example is for the optimal racing of the frc race cars. The model is a simple bycicle model and the lateral acceleration is constraint in order to validate the model assumptions.
+%% This example is for the optimal racing of the frc race cars. The model is a simple bicycle model and the lateral acceleration is constraint in order to validate the model assumptions.
 %% The simulation starts at s=-2m until one round is completed(s=8.71m). The beginning is cut in the final plots to simulate a 'warm start'. 
 
 clear all
@@ -189,20 +189,6 @@ y_ref_e = zeros(ny_e,1);
 y_ref(1) = 1; % set reference on 's' to 1 to push the car forward (progress)
 ocp_model.set('cost_y_ref', y_ref);
 ocp_model.set('cost_y_ref_e', y_ref_e);
-
-% Set dimensions
-ocp_model.set('dim_nx', nx);
-ocp_model.set('dim_nu', nu);
-ocp_model.set('dim_ny', ny);
-ocp_model.set('dim_ny_e', ny_e);
-ocp_model.set('dim_nbx', nbx);
-ocp_model.set('dim_nbu', nbu);
-ocp_model.set('dim_nh', nh);
-ocp_model.set('dim_nsh', nsh);
-ocp_model.set('dim_nsbu', 0);
-ocp_model.set('dim_nsbx', 0);
-ocp_model.set('dim_nsg', 0);
-ocp_model.set('dim_ns', nsh); % nsbu+nsbx+nsg+nsh
 
 % ... see ocp_model.model_struct to see what other fields can be set
 

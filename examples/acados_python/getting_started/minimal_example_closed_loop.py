@@ -35,7 +35,7 @@ import sys
 sys.path.insert(0, 'common')
 
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
-from export_pendulum_ode_model import export_pendulum_ode_model
+from pendulum_model import export_pendulum_ode_model
 from utils import plot_pendulum
 import numpy as np
 import scipy.linalg
@@ -56,13 +56,8 @@ N = 20
 
 # set dimensions
 ocp.dims.N = N
-# NOTE: all dimensions but N are now detected automatically in the
-#   Python interface, i.e. the following is redundant:
-# ocp.dims.nx  = nx
-# ocp.dims.ny  = ny
-# ocp.dims.ny_e = ny_e
-# ocp.dims.nbu = nu
-# ocp.dims.nu  = nu
+# NOTE: all dimensions but N are now detected automatically in the Python
+#  interface, all other dimensions will be overwritten by the detection.
 
 # set cost module
 ocp.cost.cost_type = 'LINEAR_LS'

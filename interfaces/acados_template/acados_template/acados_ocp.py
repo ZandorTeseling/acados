@@ -48,6 +48,7 @@ class AcadosOcpDims:
         self.__np      = 0
         self.__ny      = 0
         self.__ny_e    = 0
+        self.__ny_0    = 0
         self.__nr      = 0
         self.__nr_e    = 0
         self.__nh      = 0
@@ -99,6 +100,11 @@ class AcadosOcpDims:
     def ny(self):
         """:math:`n_y` - number of residuals in Lagrange term"""
         return self.__ny
+
+    @property
+    def ny_0(self):
+        """:math:`n_{y}^0` - number of residuals in Mayer term"""
+        return self.__ny_0
 
     @property
     def ny_e(self):
@@ -258,9 +264,16 @@ class AcadosOcpDims:
         else:
             raise Exception('Invalid np value, expected nonnegative integer. Exiting.')
 
+    @ny_0.setter
+    def ny_0(self, ny_0):
+        if isinstance(ny_0, int) and ny_0 > -1:
+            self.__ny_0 = ny_0
+        else:
+            raise Exception('Invalid ny_0 value, expected nonnegative integer. Exiting.')
+
     @ny.setter
     def ny(self, ny):
-        if type(ny) == int and ny > -1:
+        if isinstance(ny, int) and ny > -1:
             self.__ny = ny
         else:
             raise Exception('Invalid ny value, expected nonnegative integer. Exiting.')
@@ -461,6 +474,13 @@ class AcadosOcpCost:
     :math:`m(x) = || V^e_x x - y_{\\text{ref}^e}||^2_{W^e}`
     """
     def __init__(self):
+        # initial stage
+        self.__cost_type_0 = None  # cost type for Mayer term
+        self.__W_0 = None
+        self.__Vx_0 = None
+        self.__Vu_0 = None
+        self.__Vz_0 = None
+        self.__yref_0 = None
         # Lagrange term
         self.__cost_type   = 'LINEAR_LS'  # cost type
         self.__W           = np.zeros((0,0))
@@ -481,6 +501,63 @@ class AcadosOcpCost:
         self.__Zu_e        = np.array([])
         self.__zl_e        = np.array([])
         self.__zu_e        = np.array([])
+
+    # initial stage
+    @property
+    def cost_type_0(self):
+        """cost type at initial stage"""
+        return self.__cost_type_0
+
+    @property
+    def Vx_0(self):
+        """:math:`V_x^0` - x matrix coefficient"""
+        return self.__Vx_0
+
+    @property
+    def Vu_0(self):
+        """:math:`V_u^0` - u matrix coefficient"""
+        return self.__Vu_0
+
+    @property
+    def Vz_0(self):
+        """:math:`V_z^0` - z matrix coefficient"""
+        return self.__Vz_0
+
+    @property
+    def yref_0(self):
+        """:math:`y_{\text{ref}}^0` - reference"""
+        return self.__yref_0
+
+    @yref_0.setter
+    def yref_0(self, yref_0):
+        if isinstance(yref_0, np.ndarray):
+            self.__yref_0 = yref_0
+        else:
+            raise Exception('Invalid yref_0 value, expected numpy array. Exiting.')
+
+    @Vx_0.setter
+    def Vx_0(self, Vx_0):
+        if isinstance(Vx_0, np.ndarray) and len(Vx_0.shape) == 2:
+            self.__Vx_0 = Vx_0
+        else:
+            raise Exception('Invalid cost Vx_0 value. ' \
+                + 'Should be 2 dimensional numpy array. Exiting.')
+
+    @Vu_0.setter
+    def Vu_0(self, Vu_0):
+        if isinstance(Vu_0, np.ndarray) and len(Vu_0.shape) == 2:
+            self.__Vu_0 = Vu_0
+        else:
+            raise Exception('Invalid cost Vu_0 value. ' \
+                + 'Should be 2 dimensional numpy array. Exiting.')
+
+    @Vz_0.setter
+    def Vz_0(self, Vz_0):
+        if isinstance(Vz_0, np.ndarray) and len(Vz_0.shape) == 2:
+            self.__Vz_0 = Vz_0
+        else:
+            raise Exception('Invalid cost Vz_0 value. ' \
+                + 'Should be 2 dimensional numpy array. Exiting.')
 
     # Lagrange term
     @property
@@ -535,13 +612,19 @@ class AcadosOcpCost:
 
     @cost_type.setter
     def cost_type(self, cost_type):
-
         cost_types = ('LINEAR_LS', 'NONLINEAR_LS', 'EXTERNAL')
-
-        if type(cost_type) == str and cost_type in cost_types:
+        if cost_type in cost_types:
             self.__cost_type = cost_type
         else:
             raise Exception('Invalid cost_type value. Exiting.')
+
+    @cost_type_0.setter
+    def cost_type_0(self, cost_type_0):
+        cost_types = ('LINEAR_LS', 'NONLINEAR_LS', 'EXTERNAL')
+        if cost_type_0 in cost_types:
+            self.__cost_type_0 = cost_type_0
+        else:
+            raise Exception('Invalid cost_type_0 value. Exiting.')
 
     @W.setter
     def W(self, W):
@@ -656,7 +739,7 @@ class AcadosOcpCost:
     def cost_type_e(self, cost_type_e):
         cost_types = ('LINEAR_LS', 'NONLINEAR_LS', 'EXTERNAL')
 
-        if type(cost_type_e) == str and cost_type_e in cost_types:
+        if cost_type_e in cost_types:
             self.__cost_type_e = cost_type_e
         else:
             raise Exception('Invalid cost_type_e value. Exiting.')
@@ -825,6 +908,12 @@ class AcadosOcpConstraints:
     def ubx_0(self):
         """:math:`\\bar{x_0}` - upper bounds on x0"""
         return self.__ubx_0
+
+    @property
+    def Jbx_0(self):
+        """:math:`J_{bx,0}` - matrix coefficient for bounds on x0"""
+        print_J_to_idx_note()
+        return self.__idxbx_0
 
     @property
     def idxbx_0(self):
@@ -1200,8 +1289,7 @@ class AcadosOcpConstraints:
     @constr_type.setter
     def constr_type(self, constr_type):
         constr_types = ('BGH', 'BGP')
-
-        if type(constr_type) == str and constr_type in constr_types:
+        if constr_type in constr_types:
             self.__constr_type = constr_type
         else:
             raise Exception('Invalid constr_type value. Possible values are:\n\n' \
@@ -1210,8 +1298,7 @@ class AcadosOcpConstraints:
     @constr_type_e.setter
     def constr_type_e(self, constr_type_e):
         constr_types = ('BGH', 'BGP')
-
-        if type(constr_type_e) == str and constr_type_e in constr_types:
+        if constr_type_e in constr_types:
             self.__constr_type_e = constr_type_e
         else:
             raise Exception('Invalid constr_type_e value. Possible values are:\n\n' \
@@ -1239,6 +1326,13 @@ class AcadosOcpConstraints:
         else:
             raise Exception('Invalid idxbx_0 value. Exiting.')
 
+    @Jbx_0.setter
+    def Jbx_0(self, Jbx_0):
+        if type(Jbx_0) == np.ndarray:
+            self.__idxbx_0 = J_to_idx(Jbx_0)
+        else:
+            raise Exception('Invalid Jbx_0 value. Exiting.')
+
     @idxbxe_0.setter
     def idxbxe_0(self, idxbxe_0):
         if isinstance(idxbxe_0, np.ndarray):
@@ -1249,7 +1343,7 @@ class AcadosOcpConstraints:
 
     @x0.setter
     def x0(self, x0):
-        if type(x0) == np.ndarray:
+        if isinstance(x0, np.ndarray):
             self.__lbx_0 = x0
             self.__ubx_0 = x0
             self.__idxbx_0 = np.arange(x0.size)
@@ -1738,6 +1832,7 @@ class AcadosOcpOptions:
         self.__integrator_type  = 'ERK'                       # integrator type
         self.__tf               = None                        # prediction horizon
         self.__nlp_solver_type  = 'SQP_RTI'                   # NLP solver
+        self.__globalization = 'FIXED_STEP'
         self.__nlp_solver_step_length = 1.0                   # fixed Newton step length
         self.__levenberg_marquardt = 0.0
         self.__sim_method_num_stages  = 4                     # number of stages in the integrator
@@ -1788,6 +1883,11 @@ class AcadosOcpOptions:
     def nlp_solver_type(self):
         """NLP solver"""
         return self.__nlp_solver_type
+
+    @property
+    def globalization(self):
+        """Globalization type"""
+        return self.__globalization
 
     @property
     def regularize_method(self):
@@ -1877,6 +1977,16 @@ class AcadosOcpOptions:
         return self.__nlp_solver_tol_eq
 
     @property
+    def alpha_min(self):
+        """Minimal step size for globalization"""
+        return self.__alpha_min
+
+    @property
+    def alpha_reduction(self):
+        """Step size reduction factor for globalization"""
+        return self.__alpha_reduction
+
+    @property
     def nlp_solver_tol_ineq(self):
         """NLP solver inequality tolerance"""
         return self.__nlp_solver_tol_ineq
@@ -1952,10 +2062,10 @@ class AcadosOcpOptions:
 
     @qp_solver.setter
     def qp_solver(self, qp_solver):
-        qp_solvers = ('PARTIAL_CONDENSING_HPIPM', 'PARTIAL_CONDENSING_QPOASES', \
-                'FULL_CONDENSING_QPOASES', 'FULL_CONDENSING_HPIPM')
-
-        if isinstance(qp_solver, str) and qp_solver in qp_solvers:
+        qp_solvers = ('PARTIAL_CONDENSING_HPIPM', \
+                'FULL_CONDENSING_QPOASES', 'FULL_CONDENSING_HPIPM', \
+                'PARTIAL_CONDENSING_QPDUNES', 'PARTIAL_CONDENSING_OSQP')
+        if qp_solver in qp_solvers:
             self.__qp_solver = qp_solver
         else:
             raise Exception('Invalid qp_solver value. Possible values are:\n\n' \
@@ -1965,8 +2075,7 @@ class AcadosOcpOptions:
     def regularize_method(self, regularize_method):
         regularize_methods = ('NO_REGULARIZE', 'MIRROR', 'PROJECT', \
                                 'PROJECT_REDUC_HESS', 'CONVEXIFY')
-
-        if isinstance(regularize_method, str) and regularize_method in regularize_methods:
+        if regularize_method in regularize_methods:
             self.__regularize_method = regularize_method
         else:
             raise Exception('Invalid regularize_method value. Possible values are:\n\n' \
@@ -1975,8 +2084,7 @@ class AcadosOcpOptions:
     @hessian_approx.setter
     def hessian_approx(self, hessian_approx):
         hessian_approxs = ('GAUSS_NEWTON', 'EXACT')
-
-        if type(hessian_approx) == str and hessian_approx in hessian_approxs:
+        if hessian_approx in hessian_approxs:
             self.__hessian_approx = hessian_approx
         else:
             raise Exception('Invalid hessian_approx value. Possible values are:\n\n' \
@@ -1985,7 +2093,6 @@ class AcadosOcpOptions:
     @integrator_type.setter
     def integrator_type(self, integrator_type):
         integrator_types = ('ERK', 'IRK', 'GNSF', 'DISCRETE')
-
         if integrator_type in integrator_types:
             self.__integrator_type = integrator_type
         else:
@@ -2008,6 +2115,18 @@ class AcadosOcpOptions:
     @Tsim.setter
     def Tsim(self, Tsim):
         self.__Tsim = Tsim
+
+    @globalization.setter
+    def globalization(self, globalization):
+        self.__globalization = globalization
+
+    @alpha_min.setter
+    def alpha_min(self, alpha_min):
+        self.__alpha_min = alpha_min
+
+    @alpha_reduction.setter
+    def alpha_reduction(self, alpha_reduction):
+        self.__alpha_reduction = alpha_reduction
 
     @sim_method_num_stages.setter
     def sim_method_num_stages(self, sim_method_num_stages):
@@ -2043,8 +2162,7 @@ class AcadosOcpOptions:
     @nlp_solver_type.setter
     def nlp_solver_type(self, nlp_solver_type):
         nlp_solver_types = ('SQP', 'SQP_RTI')
-
-        if type(nlp_solver_type) == str and nlp_solver_type in nlp_solver_types:
+        if nlp_solver_type in nlp_solver_types:
             self.__nlp_solver_type = nlp_solver_type
         else:
             raise Exception('Invalid nlp_solver_type value. Possible values are:\n\n' \
@@ -2052,7 +2170,6 @@ class AcadosOcpOptions:
 
     @nlp_solver_step_length.setter
     def nlp_solver_step_length(self, nlp_solver_step_length):
-
         if type(nlp_solver_step_length) == float and nlp_solver_step_length > 0:
             self.__nlp_solver_step_length = nlp_solver_step_length
         else:

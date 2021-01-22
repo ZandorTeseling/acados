@@ -39,50 +39,56 @@ from acados_template import *
 
 def export_mhe_solver(model, N, h, Q, Q0, R):
 
-    # create render arguments
     ocp_mhe = AcadosOcp()
 
     ocp_mhe.model = model
 
-    nx = model.x.size()[0]
-    nu = model.u.size()[0]
-    nparam = model.p.size()[0]
-
-    ny = 3*nx     # h(x), w and arrival cost
-    ny_e = 0
-
-    # set ocp_nlp_dimensions
-    ocp_mhe.dims.nx  = nx
-    ocp_mhe.dims.ny  = ny
-    ocp_mhe.dims.np  = nparam
-    ocp_mhe.dims.ny_e = ny_e
-    ocp_mhe.dims.nbx = 0
-    ocp_mhe.dims.nbu = 0  # nu
-    ocp_mhe.dims.nu  = model.u.size()[0]
-    ocp_mhe.dims.N   = N
-
-    ocp_mhe.dims.nbx_0 = 0
-
-    # set weighting matrices
-
-    ocp_mhe.cost.cost_type = 'NONLINEAR_LS'
-    ocp_mhe.cost.cost_type_e = 'LINEAR_LS'
-
-    ocp_mhe.cost.W = block_diag(R, Q, np.zeros((nx, nx)))
-
     x = ocp_mhe.model.x
     u = ocp_mhe.model.u
 
-    ocp_mhe.model.cost_y_expr = vertcat(x, u, x)
+    nx = x.size()[0]
+    nu = u.size()[0]
+    nparam = model.p.size()[0]
 
+    ny_0 = 3*nx     # h(x), w and arrival cost
+    ny = 2*nx     # h(x), w
+    ny_e = 0
+
+    ocp_mhe.dims.N = N
+
+    ## set cost
+    ocp_mhe.cost.cost_type_0 = 'NONLINEAR_LS' # 'LINEAR_LS'
+
+    if ocp_mhe.cost.cost_type_0 == 'LINEAR_LS':
+        ocp_mhe.cost.W_0 = block_diag(R, Q, Q0)
+        ocp_mhe.cost.Vx_0 = np.zeros((ny_0, nx))
+        ocp_mhe.cost.Vx_0[:nx, :] = np.eye(nx)
+        ocp_mhe.cost.Vx_0[2*nx:3*nx, :] = np.eye(nx)
+
+        ocp_mhe.cost.Vu_0 = np.zeros((ny_0, nu))
+        ocp_mhe.cost.Vu_0[1*nx:2*nx, :] = np.eye(nx)
+
+        ocp_mhe.cost.yref_0 = np.zeros((ny_0,))
+
+    elif ocp_mhe.cost.cost_type_0 == "NONLINEAR_LS":
+        ocp_mhe.cost.W_0 = block_diag(R, Q, Q0)
+        ocp_mhe.model.cost_y_expr_0 = vertcat(x, u, x)
+        ocp_mhe.cost.yref_0 = np.zeros((ny_0,))
+    else:
+        Exception('Unknown cost type')
+
+    # intermediate
+    ocp_mhe.cost.cost_type = 'NONLINEAR_LS'
+
+    ocp_mhe.cost.W = block_diag(R, Q)
+    ocp_mhe.model.cost_y_expr = vertcat(x, u)
     ocp_mhe.parameter_values = np.zeros((nparam, ))
+    ocp_mhe.cost.yref = np.zeros((ny,))
 
-    # set y_ref for all stages
-    ocp_mhe.cost.yref  = np.zeros((ny,))
-    ocp_mhe.cost.yref_e = np.zeros((ny_e, ))
+    # terminal
+    ocp_mhe.cost.cost_type_e = 'LINEAR_LS'
+    ocp_mhe.cost.yref_e = np.zeros((0, ))
 
-    # set QP solver
-    # ocp_mhe.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM'
     ocp_mhe.solver_options.qp_solver = 'FULL_CONDENSING_QPOASES'
     ocp_mhe.solver_options.hessian_approx = 'GAUSS_NEWTON'
     ocp_mhe.solver_options.integrator_type = 'ERK'
@@ -94,9 +100,6 @@ def export_mhe_solver(model, N, h, Q, Q0, R):
     # ocp_mhe.solver_options.nlp_solver_type = 'SQP_RTI'
     ocp_mhe.solver_options.nlp_solver_max_iter = 200
 
-    acados_solver_mhe = AcadosOcpSolver(ocp_mhe, json_file = 'acados_ocp.json')
-
-    # set arrival cost weighting matrix
-    acados_solver_mhe.cost_set(0, "W", block_diag(R, Q, Q0))
+    acados_solver_mhe = AcadosOcpSolver(ocp_mhe, json_file = 'acados_ocp_mhe.json')
 
     return acados_solver_mhe
