@@ -31,16 +31,22 @@
 % POSSIBILITY OF SUCH DAMAGE.;
 %
 
-function ocp_json = set_up_acados_ocp_nlp_json(obj)
+function ocp_json = set_up_acados_ocp_nlp_json(obj, simulink_opts)
 
     model = obj.model_struct;
     % create
-    ocp_json = acados_template_mex.acados_ocp_nlp_json();
+    ocp_json = acados_template_mex.acados_ocp_nlp_json(simulink_opts);
 
     % general
     ocp_json.dims.N = obj.opts_struct.param_scheme_N;
     ocp_json.solver_options.tf = model.T;
-    ocp_json.solver_options.Tsim = model.T / obj.opts_struct.param_scheme_N; % for templated integrator
+
+    if isfield(obj.opts_struct, 'Tsim')
+        ocp_json.solver_options.Tsim = obj.opts_struct.Tsim;
+    else
+        ocp_json.solver_options.Tsim = model.T / obj.opts_struct.param_scheme_N; % for templated integrator
+    end
+
     ocp_json.model.name = model.name;
     % modules
     ocp_json.solver_options.qp_solver = upper(obj.opts_struct.qp_solver);
@@ -59,7 +65,11 @@ function ocp_json = set_up_acados_ocp_nlp_json(obj)
     ocp_json.solver_options.nlp_solver_tol_ineq = obj.opts_struct.nlp_solver_tol_ineq;
     ocp_json.solver_options.nlp_solver_tol_comp = obj.opts_struct.nlp_solver_tol_comp;
     ocp_json.solver_options.nlp_solver_step_length = obj.opts_struct.nlp_solver_step_length;
-    ocp_json.solver_options.qp_solver_cond_N = obj.opts_struct.qp_solver_cond_N;
+    if isfield(obj.opts_struct, 'qp_solver_cond_N')
+        ocp_json.solver_options.qp_solver_cond_N = obj.opts_struct.qp_solver_cond_N;
+    else
+        ocp_json.solver_options.qp_solver_cond_N = obj.opts_struct.param_scheme_N;
+    end
     ocp_json.solver_options.qp_solver_iter_max = obj.opts_struct.qp_solver_iter_max;
     if isfield(obj.opts_struct, 'qp_solver_tol_stat')
         ocp_json.solver_options.qp_solver_tol_stat = obj.opts_struct.qp_solver_tol_stat;
@@ -191,6 +201,23 @@ function ocp_json = set_up_acados_ocp_nlp_json(obj)
     else
         ocp_json.cost.cost_type_e = upper(model.cost_type_e);
     end
+    
+    ocp_json.cost.cost_ext_fun_type = model.cost_ext_fun_type;
+    if strcmp(model.cost_ext_fun_type, 'generic')
+        ocp_json.cost.cost_source_ext_cost = model.cost_source_ext_cost;
+        ocp_json.cost.cost_function_ext_cost = model.cost_function_ext_cost;
+    end
+    ocp_json.cost.cost_ext_fun_type_0 = model.cost_ext_fun_type_0;
+    if strcmp(model.cost_ext_fun_type_0, 'generic')
+        ocp_json.cost.cost_source_ext_cost_0 = model.cost_source_ext_cost_0;
+        ocp_json.cost.cost_function_ext_cost_0 = model.cost_function_ext_cost_0;
+    end
+    ocp_json.cost.cost_ext_fun_type_e = model.cost_ext_fun_type_e;
+    if strcmp(model.cost_ext_fun_type_e, 'generic')
+        ocp_json.cost.cost_source_ext_cost_e = model.cost_source_ext_cost_e;
+        ocp_json.cost.cost_function_ext_cost_e = model.cost_function_ext_cost_e;
+    end
+    
     ocp_json.constraints.constr_type = upper(model.constr_type);
     ocp_json.constraints.constr_type_e = upper(model.constr_type_e);
 
@@ -206,14 +233,14 @@ function ocp_json = set_up_acados_ocp_nlp_json(obj)
     % initial
     if isfield(model, 'constr_lbx_0')
         ocp_json.constraints.lbx_0 = model.constr_lbx_0;
-    else
+    elseif ocp_json.dims.nbx_0 > 0
         warning('missing: constr_lbx_0, using zeros of appropriate dimension.');
         ocp_json.constraints.lbx_0 = zeros(ocp_json.dims.nbx_0, 1);
     end
 
     if isfield(model, 'constr_ubx_0')
         ocp_json.constraints.ubx_0 = model.constr_ubx_0;
-    else
+    elseif ocp_json.dims.nbx_0 > 0
         warning('missing: constr_ubx_0, using zeros of appropriate dimension.');
         ocp_json.constraints.ubx_0 = zeros(ocp_json.dims.nbx_0, 1);
     end

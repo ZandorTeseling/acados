@@ -39,8 +39,9 @@ classdef acados_ocp < handle
         model_struct
         opts_struct
         acados_ocp_nlp_json
-        ext_fun_type
-        ext_fun_type_e
+        cost_ext_fun_type
+        cost_ext_fun_type_e
+        cost_ext_fun_type_0
     end % properties
 
 
@@ -69,8 +70,9 @@ classdef acados_ocp < handle
             end
 
             % store ext_fun_type
-            obj.ext_fun_type = obj.model_struct.ext_fun_type;
-            obj.ext_fun_type_e = obj.model_struct.ext_fun_type_e;
+            obj.cost_ext_fun_type = obj.model_struct.cost_ext_fun_type;
+            obj.cost_ext_fun_type_e = obj.model_struct.cost_ext_fun_type_e;
+            obj.cost_ext_fun_type_0 = obj.model_struct.cost_ext_fun_type_0;
 
             % detect cost type
             if (strcmp(obj.model_struct.cost_type, 'auto'))
@@ -90,7 +92,13 @@ classdef acados_ocp < handle
                 elseif (strcmp(obj.model_struct.cost_type, 'nonlinear_ls'))
                     obj.model_struct.cost_expr_y_0 = obj.model_struct.cost_expr_y;
                 elseif (strcmp(obj.model_struct.cost_type, 'ext_cost'))
-                    obj.model_struct.cost_expr_ext_cost_0 = obj.model_struct.cost_expr_ext_cost;
+                    obj.model_struct.cost_ext_fun_type_0 = obj.model_struct.cost_ext_fun_type;
+                    if strcmp(obj.model_struct.cost_ext_fun_type_0, 'casadi')
+                        obj.model_struct.cost_expr_ext_cost_0 = obj.model_struct.cost_expr_ext_cost;
+                    else % generic
+                        obj.model_struct.cost_source_ext_cost_0 = obj.model_struct.cost_source_ext_cost;
+                        obj.model_struct.cost_function_ext_cost_0 = obj.model_struct.cost_function_ext_cost;
+                    end
                 end
                 if (strcmp(obj.model_struct.cost_type, 'linear_ls')) || (strcmp(obj.model_struct.cost_type, 'nonlinear_ls'))
                     obj.model_struct.cost_W_0 = obj.model_struct.cost_W;
@@ -197,9 +205,12 @@ classdef acados_ocp < handle
         end
 
 
-        function generate_c_code(obj)
+        function generate_c_code(obj, simulink_opts)
+            if nargin < 2
+                simulink_opts = get_acados_simulink_opts;
+            end
             % set up acados_ocp_nlp_json
-            obj.acados_ocp_nlp_json = set_up_acados_ocp_nlp_json(obj);
+            obj.acados_ocp_nlp_json = set_up_acados_ocp_nlp_json(obj, simulink_opts);
             % render templated code
             ocp_generate_c_code(obj)
         end
@@ -221,10 +232,10 @@ classdef acados_ocp < handle
                 error('field must be a char vector, use '' ''');
             end
             if nargin==3
-                ocp_set(obj.ext_fun_type, obj.ext_fun_type_e, obj.C_ocp, obj.C_ocp_ext_fun, field, value);
+                ocp_set(obj.cost_ext_fun_type, obj.cost_ext_fun_type_e, obj.C_ocp, obj.C_ocp_ext_fun, field, value);
             elseif nargin==4
                 stage = varargin{4};
-                ocp_set(obj.ext_fun_type, obj.ext_fun_type_e, obj.C_ocp, obj.C_ocp_ext_fun, field, value, stage);
+                ocp_set(obj.cost_ext_fun_type, obj.cost_ext_fun_type_e, obj.C_ocp, obj.C_ocp_ext_fun, field, value, stage);
             else
                 disp('acados_ocp.set: wrong number of input arguments (2 or 3 allowed)');
             end

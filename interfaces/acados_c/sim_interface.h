@@ -87,6 +87,8 @@ void sim_dims_destroy(void *dims);
 void sim_dims_set(sim_config *config, void *dims, const char *field, const int* value);
 //
 void sim_dims_get(sim_config *config, void *dims, const char *field, int* value);
+//
+void sim_dims_get_from_attr(sim_config *config, void *dims, const char *field, int *dims_out);
 
 /* in */
 //
@@ -117,7 +119,7 @@ void sim_opts_get(sim_config *config, void *opts, const char *field, void *value
 
 /* solver */
 //
-int sim_calculate_size(sim_config *config, void *dims, void *opts_);
+acados_size_t sim_calculate_size(sim_config *config, void *dims, void *opts_);
 //
 sim_solver *sim_assign(sim_config *config, void *dims, void *opts_, void *raw_memory);
 //
