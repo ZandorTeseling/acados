@@ -49,6 +49,7 @@ typedef enum
 	IRK,
 	GNSF,
 	LIFTED_IRK,
+	DISCRETE,
 	INVALID_SIM_SOLVER,
 } sim_solver_t;
 

@@ -72,6 +72,11 @@ typedef struct sim_solver_capsule
     external_function_param_casadi * sim_gnsf_f_lo_jac_x1_x1dot_u_z;
     external_function_param_casadi * sim_gnsf_get_matrices_fun;
 
+    // DISCRETE
+    external_function_param_casadi *sim_discr_dyn_phi_fun;
+    external_function_param_casadi *sim_discr_dyn_phi_fun_jac_ut_xt;
+    external_function_param_casadi *sim_discr_dyn_phi_fun_jac_ut_xt_hess;
+
 } sim_solver_capsule;
 
 

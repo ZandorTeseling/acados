@@ -66,7 +66,10 @@ typedef enum
     PHI_FUN_JAC_Y,
     PHI_JAC_Y_UHAT,
     LO_FUN,
-    GET_GNSF_MATRICES
+    GET_GNSF_MATRICES,
+    //DISCRETE
+    DISC_PHI_FUN,
+    DISC_PHI_FUN_JAC_U_X
 } sim_function_t;
 
 

@@ -121,7 +121,11 @@ class AcadosSimOpts:
 
     @property
     def integrator_type(self):
-        """Integrator type. Default: 'ERK'."""
+        """
+        Integrator type.
+        String in ('ERK', 'IRK', 'GNSF', 'DISCRETE').
+        Default: 'ERK'.
+        """
         return self.__integrator_type
 
     @property
@@ -176,7 +180,7 @@ class AcadosSimOpts:
 
     @integrator_type.setter
     def integrator_type(self, integrator_type):
-        integrator_types = ('ERK', 'IRK', 'GNSF')
+        integrator_types = ('ERK', 'IRK', 'GNSF', 'DISCRETE')
         if integrator_type in integrator_types:
             self.__integrator_type = integrator_type
         else:

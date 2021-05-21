@@ -41,6 +41,7 @@ from copy import deepcopy
 
 from .generate_c_code_explicit_ode import generate_c_code_explicit_ode
 from .generate_c_code_implicit_ode import generate_c_code_implicit_ode
+from .generate_c_code_discrete_dynamics import generate_c_code_discrete_dynamics
 from .generate_c_code_gnsf import generate_c_code_gnsf
 from .acados_sim import AcadosSim
 from .acados_ocp import AcadosOcp
@@ -163,6 +164,8 @@ def sim_generate_casadi_functions(acados_sim):
         generate_c_code_implicit_ode(model, opts)
     elif integrator_type == 'GNSF':
         generate_c_code_gnsf(model, opts)
+    elif integrator_type == 'DISCRETE':
+        generate_c_code_discrete_dynamics(model, opts)
 
 class AcadosSimSolver:
     """
