@@ -42,6 +42,7 @@ OBJS += sim_common.o
 OBJS += sim_lifted_irk_integrator.o
 OBJS += sim_irk_integrator.o
 OBJS += sim_gnsf.o
+OBJS += sim_discrete.o
 
 obj: $(OBJS)
 
