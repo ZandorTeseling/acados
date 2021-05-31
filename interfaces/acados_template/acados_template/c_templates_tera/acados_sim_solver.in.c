@@ -272,14 +272,18 @@ int {{ model.name }}_acados_sim_create(sim_solver_capsule * capsule)
     // sim opts
     sim_opts *{{ model.name }}_sim_opts = sim_opts_create({{ model.name }}_sim_config, {{ model.name }}_sim_dims);
     capsule->acados_sim_opts = {{ model.name }}_sim_opts;
+    bool tmp_bool;
+{% if solver_options.integrator_type != "DISCRETE" %}
     int tmp_int = {{ solver_options.sim_method_num_stages }};
     sim_opts_set({{ model.name }}_sim_config, {{ model.name }}_sim_opts, "num_stages", &tmp_int);
     tmp_int = {{ solver_options.sim_method_num_steps }};
     sim_opts_set({{ model.name }}_sim_config, {{ model.name }}_sim_opts, "num_steps", &tmp_int);
     tmp_int = {{ solver_options.sim_method_newton_iter }};
     sim_opts_set({{ model.name }}_sim_config, {{ model.name }}_sim_opts, "newton_iter", &tmp_int);
-    bool tmp_bool = {{ solver_options.sim_method_jac_reuse }};
+    tmp_bool = {{ solver_options.sim_method_jac_reuse }};
     sim_opts_set({{ model.name }}_sim_config, {{ model.name }}_sim_opts, "jac_reuse", &tmp_bool);
+{% endif %}
+
 
 {% if problem_class == "SIM" %}
     // options that are not available to AcadosOcpSolver

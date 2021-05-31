@@ -72,11 +72,10 @@ typedef struct
 
 // workspace
 typedef struct
-{
-    struct blasfeo_dmat tmp_nv_nv;
+{  
+    double *rhs_forw_in;  // pointer to input vecotr for integration
+    double *out_forw_traj;// pointer to output trajectory
 } sim_discrete_workspace;
-
-
 
 // memory
 typedef struct

@@ -297,7 +297,7 @@ void *sim_discrete_model_assign(void *config, void *dims_, void *raw_memory)
     discrete_model *data = (discrete_model *) c_ptr;
     c_ptr += sizeof(discrete_model);
 
-    assert((char *) raw_memory + sim_discrete_model_calculate_size(config, dims) >= c_ptr);
+    assert((char *) raw_memory + sim_discrete_model_calculate_size(config, dims_) >= c_ptr);
 
     return data;
 }
@@ -371,7 +371,7 @@ int sim_discrete_memory_set_to_zero(void *config_, void * dims_, void *opts_, vo
 
     if (!strcmp(field, "guesses"))
     {
-        // no guesses/initialization in ERK
+        // no guesses/initialization in DISCRETE
     }
     else
     {
@@ -424,9 +424,12 @@ acados_size_t sim_discrete_workspace_calculate_size(void *config, void *dims_, v
     int nu = dims->nu;
     // int nx1 = dims->nx1;
 
-    acados_size_t size = 0;
+    acados_size_t size = sizeof(sim_discrete_workspace);
+    size += (nx + nu) * sizeof(double);  // rhs_forw_in
+    size += nx * sizeof(double);  // out_forw_traj
 
-    size += sizeof(sim_discrete_workspace);
+    make_int_multiple_of(8, &size);
+    size += 1 * 8;
 
     return size;
 }
@@ -457,6 +460,15 @@ static void *sim_discrete_cast_workspace(void *config, void *dims_, void *opts_,
     c_ptr += sizeof(sim_discrete_workspace);
     align_char_to(8, &c_ptr);
 
+    // switch to d_ptr
+    double *d_ptr = (double *) c_ptr;
+
+    //assign_and_advance_double(nX + nu, &workspace->rhs_forw_in, &c_ptr);
+    workspace->rhs_forw_in = d_ptr;
+    d_ptr += (nx+nu);
+
+    workspace->out_forw_traj = d_ptr;
+
     assert((char *) raw_memory + sim_discrete_workspace_calculate_size(config, dims_, opts) >= c_ptr);
 
     return (void *) workspace;
@@ -474,13 +486,56 @@ int sim_discrete(void *config, sim_in *in, sim_out *out, void *args, void *mem_,
     sim_opts *opts = (sim_opts *) args;
     sim_discrete_dims *dims = (sim_discrete_dims *) in->dims;
     discrete_model *model = in->model;
-    sim_discrete_workspace *workspace =
+    sim_discrete_workspace *work =
         (sim_discrete_workspace *) sim_discrete_cast_workspace(config, dims, opts, work_);
 
     // necessary integers
     int nx      = dims->nx;
     int nu      = dims->nu;
     int nz      = dims->nz;
+    //TODO Carry though the correct next stage dimensions?
+    int nx1      = dims->nx;
+    int nu1      = dims->nu;
+
+    //Inputs
+    double *x = in->x;
+    double *u = in->u;
+
+//    double work_out_forw_traj[2];
+//    double work_rhs_forw_in[3];
+//    double *forw_traj   = work_out_forw_traj;
+//    double *rhs_forw_in = work_rhs_forw_in;
+
+    double *forw_traj   = work->out_forw_traj;
+    double *rhs_forw_in = work->rhs_forw_in;
+
+    //Outputs
+    double *xn = out->xn;
+
+
+    ext_fun_arg_t ext_fun_type_in[3];
+    void *ext_fun_in[3];
+    ext_fun_arg_t ext_fun_type_out[1];
+    void *ext_fun_out[1];
+
+    // initialize integrator variables
+    for (int i = 0; i < nx; i++) rhs_forw_in[i] = x[i];  // x0
+    for (int i = 0; i < nu; i++) rhs_forw_in[nx + i] = u[i];  // controls
+
+
+    ext_fun_type_in[0] = COLMAJ;
+    ext_fun_in[0] = rhs_forw_in + 0;  // x: nx
+    ext_fun_type_in[1] = COLMAJ;
+    ext_fun_in[1] = rhs_forw_in + nx;  // u: nu
+
+    ext_fun_type_out[0] = COLMAJ;
+    ext_fun_out[0] = forw_traj + 0;  // fun: nx
+
+	// call external function
+	model->disc_dyn_fun->evaluate(model->disc_dyn_fun, ext_fun_type_in, ext_fun_in, ext_fun_type_out, ext_fun_out);
+
+    // store trajectory
+    for (int i = 0; i < nx; i++) xn[i] = forw_traj[i];
 
     out->info->CPUtime = acados_toc(&tot_timer);
 

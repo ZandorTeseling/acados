@@ -37,6 +37,7 @@
 #include "acados/sim/sim_gnsf.h"
 #include "acados/sim/sim_irk_integrator.h"
 #include "acados/sim/sim_lifted_irk_integrator.h"
+#include "acados/sim/sim_discrete.h"
 
 #include "acados_c/sim_interface.h"
 
